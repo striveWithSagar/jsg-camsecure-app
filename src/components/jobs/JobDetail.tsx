@@ -276,7 +276,9 @@ export function JobDetail({
                 onValueChange={v => { setTechnicianId(v ?? technicianId); setAssignSaved(false); }}
               >
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Assign technician" />
+                  <span className="truncate">
+                    {technicians.find(t => t.id === technicianId)?.full_name ?? "Select technician"}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   {technicians.map(t => (

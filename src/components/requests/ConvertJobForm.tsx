@@ -184,7 +184,9 @@ export function ConvertJobForm({
                 onValueChange={v => { setClientId(v ?? ""); clearError("clientId"); }}
               >
                 <SelectTrigger className={cn("h-9 text-sm", errors.clientId && "border-destructive")}>
-                  <SelectValue placeholder="Select client" />
+                  <span className="truncate">
+                    {clients.find(c => c.id === clientId)?.name ?? "Select client"}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   {clients.map(c => (
@@ -203,7 +205,9 @@ export function ConvertJobForm({
                 onValueChange={v => { setTechnicianId(v ?? ""); clearError("technicianId"); }}
               >
                 <SelectTrigger className={cn("h-9 text-sm", errors.technicianId && "border-destructive")}>
-                  <SelectValue placeholder="Assign technician" />
+                  <span className="truncate">
+                    {technicians.find(t => t.id === technicianId)?.full_name ?? "Select technician"}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   {technicians.map(t => (
