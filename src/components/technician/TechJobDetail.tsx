@@ -1,12 +1,13 @@
 import type { JobDetailData } from "@/lib/data/jobs";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
 import { JobStatusWidget } from "@/components/technician/JobStatusWidget";
-import { fmtJobNumber } from "@/lib/utils";
+import { fmtJobNumber, fmtDatetime, calcJobAge } from "@/lib/utils";
 import { ArrowLeft, MapPin, Clock, Wrench, Phone } from "lucide-react";
 import Link from "next/link";
 
 export function TechJobDetail({ job }: { job: JobDetailData }) {
   const dispatcherContact = job.dispatcherNotes || "Operations Team";
+  const ageInfo = calcJobAge(job.createdAt, job.completedAt, job.status);
 
   return (
     <div className="space-y-5">
@@ -57,6 +58,43 @@ export function TechJobDetail({ job }: { job: JobDetailData }) {
         <MapPin className="h-4 w-4" />
         Navigate to site
       </a>
+
+      {/* Timeline */}
+      <div className="rounded-xl border border-border bg-card px-4 py-3.5 space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5" /> Timeline
+        </p>
+        <div className="space-y-1.5 text-xs">
+          {job.requestCreatedAt && (
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Request created</span>
+              <span className="text-foreground font-medium">{fmtDatetime(job.requestCreatedAt)}</span>
+            </div>
+          )}
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">Job created</span>
+            <span className="text-foreground font-medium">{fmtDatetime(job.createdAt)}</span>
+          </div>
+          {job.scheduledAt && (
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Scheduled</span>
+              <span className="text-foreground font-medium">{fmtDatetime(job.scheduledAt)}</span>
+            </div>
+          )}
+          {job.completedAt && (
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Completed</span>
+              <span className="text-foreground font-medium">{fmtDatetime(job.completedAt)}</span>
+            </div>
+          )}
+          <div className="flex justify-between gap-2 pt-1 border-t border-border">
+            <span className="text-muted-foreground">Duration</span>
+            <span className={`font-semibold ${ageInfo.isComplete ? "text-emerald-500" : "text-foreground"}`}>
+              {ageInfo.label}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Status widget — writes status to Supabase on every transition */}
       <JobStatusWidget initialStatus={job.status} jobId={job.id} />

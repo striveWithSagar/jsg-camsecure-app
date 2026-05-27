@@ -12,9 +12,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { STATUS_LABELS, PRIORITY_LABELS } from "@/lib/constants";
-import { fmtJobNumber, fmtReqNumber } from "@/lib/utils";
+import { fmtJobNumber, fmtReqNumber, fmtDatetime, calcJobAge } from "@/lib/utils";
 import {
-  MapPin, CheckCircle2, User, FileText, Upload, UserCog, Save,
+  MapPin, CheckCircle2, User, FileText, Upload, UserCog, Save, Clock,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -46,6 +46,8 @@ export function JobDetail({
   const technicianName = technicianId
     ? (technicians.find(t => t.id === technicianId)?.full_name ?? "Unassigned")
     : (job.technician || "Unassigned");
+
+  const ageInfo = calcJobAge(job.createdAt, job.completedAt, status);
 
   async function saveAssignment() {
     setAssignLoading(true);
@@ -337,6 +339,44 @@ export function JobDetail({
               </p>
             )}
             {statusError && <p className="text-xs text-destructive">{statusError}</p>}
+          </div>
+
+          {/* Timeline */}
+          <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" /> Timeline
+            </h3>
+            <div className="space-y-2 text-xs">
+              {job.requestCreatedAt && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Request created</span>
+                  <span className="text-foreground font-medium text-right">{fmtDatetime(job.requestCreatedAt)}</span>
+                </div>
+              )}
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground">Job created</span>
+                <span className="text-foreground font-medium text-right">{fmtDatetime(job.createdAt)}</span>
+              </div>
+              {job.scheduledAt && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Scheduled</span>
+                  <span className="text-foreground font-medium text-right">{fmtDatetime(job.scheduledAt)}</span>
+                </div>
+              )}
+              {job.completedAt && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Completed</span>
+                  <span className="text-foreground font-medium text-right">{fmtDatetime(job.completedAt)}</span>
+                </div>
+              )}
+              <Separator className="bg-border" />
+              <div className="flex justify-between gap-2 pt-0.5">
+                <span className="text-muted-foreground">Age</span>
+                <span className={`font-semibold ${ageInfo.isComplete ? "text-c-success" : "text-foreground"}`}>
+                  {ageInfo.label}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Photos */}

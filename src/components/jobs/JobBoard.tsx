@@ -1,146 +1,421 @@
 "use client";
 
 import { useState } from "react";
-import type { JobRow } from "@/lib/data/jobs";
+import { useRouter } from "next/navigation";
+import type { JobBucket, JobRow } from "@/lib/data/jobs";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
-import { Button } from "@/components/ui/button";
 import { fmtJobNumber } from "@/lib/utils";
-import { Clock, User } from "lucide-react";
+import { AlertTriangle, Calendar, ChevronDown, ChevronRight, Clock, User } from "lucide-react";
 import Link from "next/link";
 
+// ── Config ────────────────────────────────────────────────────────────────────
+
+// Completed / Cancelled removed from active Kanban (D5)
 const KANBAN_COLUMNS = [
-  { key: "assigned",    label: "Assigned",    indicator: "bg-c-info-solid" },
-  { key: "on_the_way",  label: "On the Way",  indicator: "bg-c-teal-solid" },
-  { key: "in_progress", label: "In Progress", indicator: "bg-c-violet-solid" },
-  { key: "started",     label: "Started",     indicator: "bg-c-amber-solid" },
-  { key: "needs_parts",  label: "Needs Parts",  indicator: "bg-c-warning-solid" },
-  { key: "rescheduled", label: "Rescheduled", indicator: "bg-c-purple-solid" },
-  { key: "completed",   label: "Completed",   indicator: "bg-c-success-solid" },
+  { key: "assigned",    label: "Assigned",    dot: "bg-c-info-solid" },
+  { key: "on_the_way",  label: "On the Way",  dot: "bg-c-teal-solid" },
+  { key: "in_progress", label: "In Progress", dot: "bg-c-violet-solid" },
+  { key: "started",     label: "Started",     dot: "bg-c-amber-solid" },
+  { key: "needs_parts", label: "Needs Parts", dot: "bg-c-warning-solid" },
+  { key: "rescheduled", label: "Rescheduled", dot: "bg-c-purple-solid" },
 ];
 
 const PRIORITY_ORDER = ["emergency", "high", "medium", "low"];
 
-export function JobBoard({ jobs }: { jobs: JobRow[] }) {
-  const [view, setView] = useState<"kanban" | "list">("kanban");
+// ── Client-side date helpers ──────────────────────────────────────────────────
 
-  const sortedForList = [...jobs].sort((a, b) => {
-    const pa = PRIORITY_ORDER.indexOf(a.priority);
-    const pb = PRIORITY_ORDER.indexOf(b.priority);
-    if (pa !== pb) return pa - pb;
-    return a.client.localeCompare(b.client);
+function localDateStr(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function daysBetween(isoA: string, isoB: string): number {
+  return Math.max(0, Math.round(
+    (new Date(isoB + "T00:00:00").getTime() - new Date(isoA + "T00:00:00").getTime()) / 86_400_000,
+  ));
+}
+
+function fmtDayHeading(dateStr: string): string {
+  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric",
   });
+}
 
+// ── Shared card components ────────────────────────────────────────────────────
+
+function KanbanCard({ job }: { job: JobRow }) {
   return (
-    <div className="flex-1 px-6 py-6 flex flex-col min-w-0">
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-          <Button
-            variant="ghost" size="sm"
-            onClick={() => setView("kanban")}
-            className={view === "kanban"
-              ? "h-7 px-3 text-xs bg-card text-foreground shadow-sm rounded"
-              : "h-7 px-3 text-xs text-muted-foreground rounded"}
-          >
-            Kanban
-          </Button>
-          <Button
-            variant="ghost" size="sm"
-            onClick={() => setView("list")}
-            className={view === "list"
-              ? "h-7 px-3 text-xs bg-card text-foreground shadow-sm rounded"
-              : "h-7 px-3 text-xs text-muted-foreground rounded"}
-          >
-            List
-          </Button>
+    <Link href={`/jobs/${job.id}`}>
+      <div className="rounded-lg border border-border bg-card p-3.5 hover:border-border/80 hover:bg-muted/20 transition-colors cursor-pointer">
+        <div className="flex items-center gap-2 mb-2.5">
+          <PriorityBadge value={job.priority} />
+          <span className="text-[10px] font-mono text-muted-foreground ml-auto">{fmtJobNumber(job.jobNumber)}</span>
         </div>
-        <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
-          <span>{jobs.filter(j => j.priority === "emergency").length} emergency</span>
-          <span>·</span>
-          <span>{jobs.filter(j => j.status === "needs_parts").length} needs parts</span>
+        <p className="text-sm font-semibold text-foreground leading-tight truncate">{job.client}</p>
+        <p className="text-xs text-muted-foreground truncate mb-2.5">{job.site}</p>
+        <p className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded mb-3 truncate">{job.type}</p>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <User className="h-3 w-3" />
+            {job.technician.split(" ")[0]}
+          </span>
+          <span className="flex items-center gap-1 ml-auto">
+            <Clock className="h-3 w-3" />
+            {job.scheduled.replace("Today ", "")}
+          </span>
         </div>
       </div>
+    </Link>
+  );
+}
 
-      {/* ── List view ── */}
-      {view === "list" && (
-        <div className="space-y-1.5">
-          {sortedForList.length === 0 && (
-            <div className="py-16 text-center">
-              <p className="text-sm text-muted-foreground">No jobs found.</p>
-            </div>
-          )}
-          {sortedForList.map(job => (
+function ListRow({ job }: { job: JobRow }) {
+  return (
+    <Link href={`/jobs/${job.id}`}>
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted/20 transition-colors">
+        <PriorityBadge value={job.priority} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground truncate">{job.client}</p>
+          <p className="text-xs text-muted-foreground truncate">{job.site} · {job.type}</p>
+        </div>
+        <div className="hidden sm:flex items-center gap-4 shrink-0 text-xs text-muted-foreground">
+          <span className="font-mono text-muted-foreground/60">{fmtJobNumber(job.jobNumber)}</span>
+          <span className="flex items-center gap-1"><User className="h-3 w-3" />{job.technician.split(" ")[0]}</span>
+          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{job.scheduled.replace("Today ", "")}</span>
+        </div>
+        <StatusBadge value={job.status} />
+      </div>
+    </Link>
+  );
+}
+
+// ── Section components ────────────────────────────────────────────────────────
+
+function OverdueSection({ jobs, todayStr }: { jobs: JobRow[]; todayStr: string }) {
+  if (jobs.length === 0) return null;
+  return (
+    <div className="mb-5 rounded-lg border border-c-warning/40 bg-c-warning/5 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <AlertTriangle className="h-3.5 w-3.5 text-c-warning" />
+        <span className="text-xs font-semibold text-c-warning uppercase tracking-widest">
+          Overdue / Carry Forward
+        </span>
+        <span className="ml-auto text-xs text-c-warning/70 bg-c-warning/10 px-1.5 py-0.5 rounded">
+          {jobs.length}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {jobs.map(job => {
+          const days = job.scheduledAt ? daysBetween(job.scheduledAt.slice(0, 10), todayStr) : 0;
+          return (
             <Link key={job.id} href={`/jobs/${job.id}`}>
-              <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted/20 transition-colors">
+              <div className="flex items-center gap-3 rounded-md border border-c-warning/20 bg-background/60 px-3 py-2.5 hover:bg-c-warning/10 transition-colors">
                 <PriorityBadge value={job.priority} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{job.client}</p>
-                  <p className="text-xs text-muted-foreground truncate">{job.site} · {job.type}</p>
+                  <p className="text-xs text-muted-foreground truncate">{job.site}</p>
                 </div>
-                <div className="hidden sm:flex items-center gap-4 shrink-0 text-xs text-muted-foreground">
+                <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground shrink-0">
                   <span className="font-mono text-muted-foreground/60">{fmtJobNumber(job.jobNumber)}</span>
                   <span className="flex items-center gap-1">
                     <User className="h-3 w-3" />{job.technician.split(" ")[0]}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />{job.scheduled.replace("Today ", "")}
-                  </span>
                 </div>
+                <StatusBadge value={job.status} />
+                <span className="text-xs font-semibold text-c-warning shrink-0 ml-1">
+                  {days > 0 ? `${days}d` : "<1d"}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DoneSection({ jobs, label }: { jobs: JobRow[]; label: string }) {
+  const [open, setOpen] = useState(false);
+  if (jobs.length === 0) return null;
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center gap-2 text-left mb-2"
+      >
+        {open
+          ? <ChevronDown  className="h-3.5 w-3.5 text-muted-foreground" />
+          : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+        }
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{label}</span>
+        <span className="text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded ml-1">{jobs.length}</span>
+      </button>
+      {open && (
+        <div className="space-y-1.5">
+          {jobs.map(job => (
+            <Link key={job.id} href={`/jobs/${job.id}`}>
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/10 px-4 py-2.5 opacity-75 hover:opacity-100 hover:bg-muted/20 transition-all">
+                <PriorityBadge value={job.priority} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{job.client}</p>
+                  <p className="text-xs text-muted-foreground truncate">{job.site}</p>
+                </div>
+                <span className="font-mono text-xs text-muted-foreground/60">{fmtJobNumber(job.jobNumber)}</span>
                 <StatusBadge value={job.status} />
               </div>
             </Link>
           ))}
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* ── Kanban board ── */}
-      {view === "kanban" && (
-        <div className="flex-1 overflow-x-auto pb-4">
-          <div className="flex gap-4 h-full" style={{ minWidth: `${KANBAN_COLUMNS.length * 260}px` }}>
-            {KANBAN_COLUMNS.map(col => {
-              const colJobs = jobs.filter(j => j.status === col.key);
-              return (
-                <div key={col.key} className="flex flex-col w-[260px] shrink-0">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className={`h-2 w-2 rounded-full ${col.indicator}`} />
-                    <span className="text-xs font-semibold text-foreground">{col.label}</span>
-                    <span className="ml-auto text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">
-                      {colJobs.length}
-                    </span>
+function UnscheduledSection({ jobs }: { jobs: JobRow[] }) {
+  if (jobs.length === 0) return null;
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Unscheduled</span>
+        <span className="text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">{jobs.length}</span>
+      </div>
+      <div className="space-y-1.5">
+        {jobs.map(job => (
+          <Link key={job.id} href={`/jobs/${job.id}`}>
+            <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-card px-4 py-2.5 hover:bg-muted/20 transition-colors">
+              <PriorityBadge value={job.priority} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{job.client}</p>
+                <p className="text-xs text-muted-foreground truncate">{job.site} · {job.type}</p>
+              </div>
+              <span className="font-mono text-xs text-muted-foreground/60">{fmtJobNumber(job.jobNumber)}</span>
+              <StatusBadge value={job.status} />
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── View components ───────────────────────────────────────────────────────────
+
+function KanbanView({ jobs }: { jobs: JobRow[] }) {
+  if (jobs.length === 0) {
+    return (
+      <div className="mb-5 rounded-lg border border-dashed border-border py-16 text-center">
+        <p className="text-sm text-muted-foreground">No active jobs scheduled for this date.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto pb-4 mb-5">
+      <div className="flex gap-4" style={{ minWidth: `${KANBAN_COLUMNS.length * 260}px` }}>
+        {KANBAN_COLUMNS.map(col => {
+          const colJobs = jobs.filter(j => j.status === col.key);
+          return (
+            <div key={col.key} className="flex flex-col w-[260px] shrink-0">
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`h-2 w-2 rounded-full ${col.dot}`} />
+                <span className="text-xs font-semibold text-foreground">{col.label}</span>
+                <span className="ml-auto text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">
+                  {colJobs.length}
+                </span>
+              </div>
+              <div className="space-y-2.5">
+                {colJobs.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border py-8 text-center">
+                    <p className="text-xs text-muted-foreground">No jobs</p>
                   </div>
-                  <div className="flex-1 space-y-2.5">
-                    {colJobs.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-border py-8 text-center">
-                        <p className="text-xs text-muted-foreground">No jobs</p>
-                      </div>
-                    ) : colJobs.map(job => (
-                      <Link key={job.id} href={`/jobs/${job.id}`}>
-                        <div className="rounded-lg border border-border bg-card p-3.5 hover:border-border/80 hover:bg-muted/20 transition-colors cursor-pointer group">
-                          <div className="flex items-center gap-2 mb-2.5">
-                            <PriorityBadge value={job.priority} />
-                            <span className="text-[10px] font-mono text-muted-foreground ml-auto">{fmtJobNumber(job.jobNumber)}</span>
-                          </div>
-                          <p className="text-sm font-semibold text-foreground leading-tight truncate">{job.client}</p>
-                          <p className="text-xs text-muted-foreground truncate mb-2.5">{job.site}</p>
-                          <p className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded mb-3 truncate">{job.type}</p>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />{job.technician.split(" ")[0]}
-                            </span>
-                            <span className="flex items-center gap-1 ml-auto">
-                              <Clock className="h-3 w-3" />{job.scheduled.replace("Today ", "")}
-                            </span>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                ) : (
+                  colJobs.map(job => <KanbanCard key={job.id} job={job} />)
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ListView({ jobs }: { jobs: JobRow[] }) {
+  const sorted = [...jobs].sort((a, b) => {
+    const pa = PRIORITY_ORDER.indexOf(a.priority);
+    const pb = PRIORITY_ORDER.indexOf(b.priority);
+    return pa !== pb ? pa - pb : a.client.localeCompare(b.client);
+  });
+  return (
+    <div className="space-y-1.5 mb-5">
+      {sorted.length === 0 && (
+        <div className="py-10 text-center">
+          <p className="text-sm text-muted-foreground">No active jobs scheduled for this date.</p>
         </div>
+      )}
+      {sorted.map(job => <ListRow key={job.id} job={job} />)}
+    </div>
+  );
+}
+
+function WeekView({ bucket }: { bucket: JobBucket }) {
+  const todayStr = localDateStr(0);
+  return (
+    <div className="space-y-5">
+      <OverdueSection jobs={bucket.overdue} todayStr={todayStr} />
+      {bucket.weekDays.map(({ label, date, jobs }) => (
+        <div key={date}>
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className={`text-xs font-semibold uppercase tracking-widest ${
+              date === todayStr ? "text-primary" : "text-muted-foreground"
+            }`}>
+              {label}{date === todayStr ? " · Today" : ""}
+            </span>
+            <span className="text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">
+              {jobs.length}
+            </span>
+          </div>
+          {jobs.length === 0 ? (
+            <p className="text-xs text-muted-foreground pl-1 py-1 border-l-2 border-border">
+              No jobs scheduled.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {jobs.map(job => <ListRow key={job.id} job={job} />)}
+            </div>
+          )}
+        </div>
+      ))}
+      <UnscheduledSection jobs={bucket.unscheduled} />
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export function JobBoard({ bucket, dateParam }: { bucket: JobBucket; dateParam: string }) {
+  const router = useRouter();
+  const [view, setView] = useState<"kanban" | "list">("kanban");
+
+  const todayStr    = localDateStr(0);
+  const tomorrowStr = localDateStr(1);
+
+  const activeTab =
+    dateParam === "week"        ? "week"     :
+    dateParam === todayStr      ? "today"    :
+    dateParam === tomorrowStr   ? "tomorrow" :
+    "custom";
+
+  function nav(d: string) {
+    router.push(`/jobs?date=${d}`);
+  }
+
+  const doneLabel =
+    dateParam === todayStr      ? "Completed Today" :
+    dateParam === tomorrowStr   ? "Completed Tomorrow" :
+    dateParam === "week"        ? "Completed This Week" :
+    `Completed ${new Date(dateParam + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+
+  const tabClass = (id: string) =>
+    activeTab === id
+      ? "h-7 px-3 text-xs bg-card text-foreground shadow-sm rounded"
+      : "h-7 px-3 text-xs text-muted-foreground rounded hover:text-foreground transition-colors";
+
+  return (
+    <div className="flex-1 px-6 py-6 flex flex-col min-w-0">
+
+      {/* ── Toolbar ── */}
+      <div className="flex items-center gap-3 mb-5 flex-wrap">
+
+        {/* Date tab bar */}
+        <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+          <button className={tabClass("today")}    onClick={() => nav(todayStr)}>Today</button>
+          <button className={tabClass("tomorrow")} onClick={() => nav(tomorrowStr)}>Tomorrow</button>
+          <button className={tabClass("week")}     onClick={() => nav("week")}>This Week</button>
+          {/* Native date picker — styled to blend with tabs */}
+          <input
+            type="date"
+            value={activeTab === "custom" ? dateParam : ""}
+            onChange={e => e.target.value && nav(e.target.value)}
+            className="h-7 px-2 text-xs text-muted-foreground bg-transparent rounded hover:text-foreground cursor-pointer outline-none"
+            title="Pick a date"
+          />
+        </div>
+
+        {/* Kanban / List toggle — day view only */}
+        {!bucket.isWeekView && (
+          <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5 ml-2">
+            <button
+              onClick={() => setView("kanban")}
+              className={view === "kanban"
+                ? "h-7 px-3 text-xs bg-card text-foreground shadow-sm rounded"
+                : "h-7 px-3 text-xs text-muted-foreground rounded hover:text-foreground transition-colors"}
+            >
+              Kanban
+            </button>
+            <button
+              onClick={() => setView("list")}
+              className={view === "list"
+                ? "h-7 px-3 text-xs bg-card text-foreground shadow-sm rounded"
+                : "h-7 px-3 text-xs text-muted-foreground rounded hover:text-foreground transition-colors"}
+            >
+              List
+            </button>
+          </div>
+        )}
+
+        {/* Quick stats */}
+        <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
+          {bucket.overdue.length > 0 && (
+            <>
+              <span className="font-medium text-c-warning">{bucket.overdue.length} overdue</span>
+              <span>·</span>
+            </>
+          )}
+          <span>
+            {bucket.active.length + bucket.overdue.length + bucket.unscheduled.length} active
+          </span>
+        </div>
+      </div>
+
+      {/* ── Week view ── */}
+      {bucket.isWeekView && <WeekView bucket={bucket} />}
+
+      {/* ── Day view ── */}
+      {!bucket.isWeekView && (
+        <>
+          {/* Overdue / Carry Forward — always shown when non-empty */}
+          <OverdueSection jobs={bucket.overdue} todayStr={todayStr} />
+
+          {/* Active section header */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-semibold text-foreground uppercase tracking-widest">
+              {activeTab === "today"    ? "Today" :
+               activeTab === "tomorrow" ? "Tomorrow" :
+               fmtDayHeading(dateParam)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              — {bucket.active.length} active
+            </span>
+          </div>
+
+          {/* Kanban or list for today's active jobs */}
+          {view === "kanban"
+            ? <KanbanView jobs={bucket.active} />
+            : <ListView   jobs={bucket.active} />
+          }
+
+          {/* Completed / Cancelled for this date (grouped by completed_at, collapsible) */}
+          <DoneSection jobs={bucket.done} label={doneLabel} />
+
+          {/* Unscheduled — always shown when non-empty */}
+          <UnscheduledSection jobs={bucket.unscheduled} />
+        </>
       )}
     </div>
   );
