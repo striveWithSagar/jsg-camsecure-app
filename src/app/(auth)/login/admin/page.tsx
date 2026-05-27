@@ -1,13 +1,56 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShieldCheck, ArrowLeft } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-
-export const metadata = { title: "Admin Login · CamSecure" };
 
 export default function AdminLoginPage() {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email    = formData.get("email")    as string;
+    const password = formData.get("password") as string;
+
+    const supabase = createClient();
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", authData.user.id)
+      .single();
+
+    if (!["admin", "owner", "dispatcher"].includes(profile?.role ?? "")) {
+      await supabase.auth.signOut();
+      setError("This account does not have admin portal access.");
+      setLoading(false);
+      return;
+    }
+
+    router.push("/dashboard");
+  }
+
   return (
     <div className="min-h-screen flex bg-background">
 
@@ -54,12 +97,10 @@ export default function AdminLoginPage() {
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm space-y-7">
 
-          {/* Back link */}
           <Link href="/" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-3 w-3" /> Back to role selection
           </Link>
 
-          {/* Mobile logo */}
           <div className="flex items-center gap-3 lg:hidden">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 border border-primary/25">
               <ShieldCheck className="h-4 w-4 text-primary" />
@@ -72,34 +113,49 @@ export default function AdminLoginPage() {
             <p className="text-sm text-muted-foreground mt-1">Access the operations dashboard</p>
           </div>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-xs">Email address</Label>
-              <Input id="email" type="email" placeholder="admin@jsg.com" className="h-10 text-sm" autoComplete="email" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="admin@jsg.com"
+                className="h-10 text-sm"
+                autoComplete="email"
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-xs">Password</Label>
-                <button type="button" className="text-xs text-primary hover:underline">Forgot password?</button>
+                <span className="text-xs text-muted-foreground">Forgot password? <span className="opacity-60">(Coming soon)</span></span>
               </div>
-              <Input id="password" type="password" placeholder="••••••••" className="h-10 text-sm" autoComplete="current-password" />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                className="h-10 text-sm"
+                autoComplete="current-password"
+                required
+              />
             </div>
-            <Button type="submit" className="w-full h-10 text-sm font-medium">Sign in to Dashboard</Button>
-          </form>
 
-          <div className="border-t border-border pt-5">
-            <p className="text-xs text-muted-foreground mb-3">Quick access (demo):</p>
-            <Link
-              href="/dashboard"
-              className={cn(buttonVariants({ variant: "outline" }), "w-full justify-between h-auto py-3 px-4")}
+            {error && (
+              <p className="text-xs text-destructive bg-destructive/8 border border-destructive/20 rounded-md px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full h-10 text-sm font-medium"
+              disabled={loading}
             >
-              <div className="text-left">
-                <p className="text-xs font-medium text-foreground">JSG Admin</p>
-                <p className="text-xs text-muted-foreground">admin@jsg.com</p>
-              </div>
-              <span className="text-xs text-primary">Enter →</span>
-            </Link>
-          </div>
+              {loading ? "Signing in…" : "Sign in to Dashboard"}
+            </Button>
+          </form>
 
         </div>
       </div>

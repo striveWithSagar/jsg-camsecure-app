@@ -1,7 +1,8 @@
+import { notFound } from "next/navigation";
+import { getClientById } from "@/lib/data/clients";
 import { TopBar } from "@/components/layout/TopBar";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { MOCK_CLIENTS, MOCK_JOBS, MOCK_INVOICES } from "@/lib/constants";
 import {
   ArrowLeft, Building2, Phone, Mail, Briefcase, Receipt,
 } from "lucide-react";
@@ -13,13 +14,16 @@ export default async function ClientProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const client = MOCK_CLIENTS.find(c => c.id === id) ?? MOCK_CLIENTS[0];
-  const clientJobs = MOCK_JOBS.filter(j => j.client === client.name);
-  const clientInvoices = MOCK_INVOICES.filter(i => i.client === client.name);
+  const client = await getClientById(id);
+
+  if (!client) notFound();
 
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar title={client.name} subtitle={`${client.sites} site${client.sites > 1 ? "s" : ""} · ${client.jobs} jobs`} />
+      <TopBar
+        title={client.name}
+        subtitle={`${client.jobCount} job${client.jobCount !== 1 ? "s" : ""}`}
+      />
 
       <div className="flex-1 px-6 py-6 space-y-6 max-w-4xl">
 
@@ -35,17 +39,24 @@ export default async function ClientProfilePage({
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-semibold text-foreground">{client.name}</h2>
-              <p className="text-sm text-muted-foreground mb-3">{client.contact}</p>
+              <p className="text-sm text-muted-foreground mb-3">{client.contact || "—"}</p>
               <div className="flex flex-wrap gap-4 text-sm">
-                <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-primary hover:underline">
-                  <Phone className="h-3.5 w-3.5" />{client.phone}
-                </a>
-                <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-primary hover:underline">
-                  <Mail className="h-3.5 w-3.5" />{client.email}
-                </a>
+                {client.phone && (
+                  <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-primary hover:underline">
+                    <Phone className="h-3.5 w-3.5" />{client.phone}
+                  </a>
+                )}
+                {client.email && (
+                  <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 text-primary hover:underline">
+                    <Mail className="h-3.5 w-3.5" />{client.email}
+                  </a>
+                )}
               </div>
             </div>
-            <Button size="sm" variant="outline" className="h-8 text-xs shrink-0">Edit Client</Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" disabled>Edit Client</Button>
+              <span className="text-xs text-muted-foreground">Coming soon</span>
+            </div>
           </div>
         </div>
 
@@ -57,14 +68,14 @@ export default async function ClientProfilePage({
               <div className="flex items-center gap-2">
                 <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
                 <h3 className="text-sm font-semibold text-foreground">Jobs</h3>
-                <span className="text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">{clientJobs.length || client.jobs}</span>
+                <span className="text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">{client.jobCount}</span>
               </div>
               <Link href="/jobs">
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">View all</Button>
               </Link>
             </div>
             <div className="divide-y divide-border">
-              {clientJobs.length > 0 ? clientJobs.map(job => (
+              {client.jobs.length > 0 ? client.jobs.map(job => (
                 <Link key={job.id} href={`/jobs/${job.id}`} className="flex items-center gap-3 px-5 py-3.5 hover:bg-muted/20 transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{job.type}</p>
@@ -87,21 +98,21 @@ export default async function ClientProfilePage({
               <div className="flex items-center gap-2">
                 <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
                 <h3 className="text-sm font-semibold text-foreground">Invoices</h3>
-                <span className="text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">{clientInvoices.length}</span>
+                <span className="text-xs text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">{client.invoices.length}</span>
               </div>
               <Link href="/invoices">
                 <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">View all</Button>
               </Link>
             </div>
             <div className="divide-y divide-border">
-              {clientInvoices.length > 0 ? clientInvoices.map(inv => (
+              {client.invoices.length > 0 ? client.invoices.map(inv => (
                 <div key={inv.id} className="flex items-center gap-3 px-5 py-3.5">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">${inv.amount.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">Due {inv.due}</p>
+                    <p className="text-sm font-medium text-foreground">${inv.total.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Due {inv.dueAt}</p>
                   </div>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded border ${
-                    inv.status === "paid" ? "badge-completed" :
+                    inv.status === "paid"    ? "badge-completed" :
                     inv.status === "overdue" ? "badge-emergency" : "badge-assigned"
                   }`}>{inv.status}</span>
                 </div>

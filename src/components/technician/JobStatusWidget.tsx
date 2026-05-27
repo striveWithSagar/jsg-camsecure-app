@@ -1,24 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
-// TODO: replace useMockStore call with Supabase mutation:
-//   supabase.from("jobs").update({ status: next }).eq("id", jobId)
-import { useMockStore } from "@/lib/mock-store";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Play, Wrench, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TRANSITIONS: Record<string, { label: string; icon: React.ElementType; next: string; color: string }[]> = {
-  assigned:    [{ label: "Start Travelling",        icon: ArrowRight,   next: "on_the_way",  color: "text-c-teal" }],
-  on_the_way:  [{ label: "Arrived — Start Job",     icon: Play,         next: "started",     color: "text-c-amber" }],
-  started:     [{ label: "Mark In Progress",        icon: Play,         next: "in_progress", color: "text-primary" }],
+  assigned:    [{ label: "Start Travelling",       icon: ArrowRight,   next: "on_the_way",  color: "text-c-teal" }],
+  on_the_way:  [{ label: "Arrived — Start Job",    icon: Play,         next: "started",     color: "text-c-amber" }],
+  started:     [{ label: "Mark In Progress",       icon: Play,         next: "in_progress", color: "text-primary" }],
   in_progress: [
     { label: "Mark Complete", icon: CheckCircle2, next: "completed",   color: "text-c-success" },
     { label: "Needs Parts",   icon: Wrench,       next: "needs_parts", color: "text-c-warning" },
   ],
-  needs_parts: [{ label: "Resume — Parts Arrived",  icon: Play,         next: "in_progress", color: "text-primary" }],
+  needs_parts: [{ label: "Resume — Parts Arrived", icon: Play,         next: "in_progress", color: "text-primary" }],
   completed:   [],
-  rescheduled: [{ label: "Restart Job",             icon: Play,         next: "assigned",    color: "text-primary" }],
+  rescheduled: [{ label: "Restart Job",            icon: Play,         next: "assigned",    color: "text-primary" }],
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,22 +31,34 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function JobStatusWidget({ initialStatus, jobId }: { initialStatus: string; jobId: string }) {
   const [status, setStatus] = useState(initialStatus);
-  // TODO: replace with Supabase realtime subscription once auth is integrated
-  const store = useMockStore();
-
-  // Sync from store after localStorage hydrates — picks up status changes made in the admin portal
-  useEffect(() => {
-    if (!store.hydrated) return;
-    const stored = store.jobs.find(j => j.id === jobId);
-    if (stored) setStatus(stored.status);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.hydrated]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState<string | null>(null);
 
   const transitions = TRANSITIONS[status] ?? [];
 
-  function advance(next: string) {
+  async function advance(next: string) {
+    setSaving(true);
+    setError(null);
+
+    const supabase = createClient();
+    const updates: Record<string, unknown> = { status: next };
+    if (next === "completed") {
+      updates.completed_at = new Date().toISOString();
+    }
+
+    const { error: dbError } = await supabase
+      .from("jobs")
+      .update(updates)
+      .eq("id", jobId);
+
+    if (dbError) {
+      setError("Failed to update status. Please try again.");
+      setSaving(false);
+      return;
+    }
+
     setStatus(next);
-    store.updateJobStatus(jobId, next);
+    setSaving(false);
   }
 
   return (
@@ -77,9 +87,10 @@ export function JobStatusWidget({ initialStatus, jobId }: { initialStatus: strin
               variant="outline"
               className={cn("w-full justify-start gap-2 h-11", color)}
               onClick={() => advance(next)}
+              disabled={saving}
             >
               <Icon className="h-4 w-4" />
-              {label}
+              {saving ? "Saving…" : label}
             </Button>
           ))}
         </div>
@@ -90,11 +101,21 @@ export function JobStatusWidget({ initialStatus, jobId }: { initialStatus: strin
         </div>
       )}
 
+      {error && (
+        <p className="text-xs text-destructive bg-destructive/8 border border-destructive/20 rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+
       <div className="space-y-1.5">
-        <p className="text-xs text-muted-foreground font-medium">Field notes</p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground font-medium">Field notes</p>
+          <span className="text-[10px] text-muted-foreground/60">Coming soon</span>
+        </div>
         <textarea
-          className="w-full rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground px-3 py-2.5 min-h-[80px] resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
-          placeholder="Add any notes for the dispatcher…"
+          disabled
+          className="w-full rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground px-3 py-2.5 min-h-[80px] resize-none opacity-50 cursor-not-allowed"
+          placeholder="Field notes — coming soon"
         />
       </div>
     </div>

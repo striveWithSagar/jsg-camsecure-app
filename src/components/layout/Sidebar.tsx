@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Inbox, KanbanSquare, Users, HardHat,
   Receipt, Settings, ShieldCheck, LogOut, ChevronRight,
@@ -9,6 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { createClient } from "@/lib/supabase/client";
+import { useProfile } from "@/components/providers/ProfileProvider";
 
 const NAV = [
   { label: "Dashboard",        href: "/dashboard",    icon: LayoutDashboard },
@@ -25,6 +27,14 @@ const BOTTOM_NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const profile = useProfile();
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login/admin");
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-sidebar border-r border-sidebar-border">
@@ -92,13 +102,13 @@ export function Sidebar() {
       <div className="border-t border-sidebar-border px-4 py-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">JG</AvatarFallback>
+            <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">{profile.initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0 leading-tight">
-            <p className="text-xs font-medium text-foreground truncate">JSG Admin</p>
-            <p className="text-xs text-muted-foreground truncate">admin@jsg.com</p>
+            <p className="text-xs font-medium text-foreground truncate">{profile.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
           </div>
-          <button aria-label="Sign out" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded">
+          <button aria-label="Sign out" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded">
             <LogOut className="h-3.5 w-3.5" />
           </button>
         </div>

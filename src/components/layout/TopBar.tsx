@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, Bell, Plus, Menu } from "lucide-react";
+import { useProfile } from "@/components/providers/ProfileProvider";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,6 +19,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ title, subtitle }: TopBarProps) {
+  const profile = useProfile();
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-background/95 backdrop-blur-sm px-6">
       {/* Mobile menu */}
@@ -70,7 +72,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
 
         {/* User */}
         <Avatar className="h-7 w-7 cursor-pointer">
-          <AvatarFallback className="bg-primary/20 text-primary text-[10px] font-semibold">JG</AvatarFallback>
+          <AvatarFallback className="bg-primary/20 text-primary text-[10px] font-semibold">{profile.initials}</AvatarFallback>
         </Avatar>
       </div>
     </header>

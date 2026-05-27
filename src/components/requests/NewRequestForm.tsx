@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +10,23 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { SERVICE_TYPES, URGENCY_LEVELS } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, fmtReqNumber } from "@/lib/utils";
 import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+
+// Maps the display-string Select values to the DB enum values in service_requests.service_type
+const SERVICE_TYPE_DB: Record<string, string> = {
+  "New Installation":  "new_installation",
+  "Maintenance":       "maintenance",
+  "DVR/NVR Issue":     "dvr_nvr_issue",
+  "Camera Outage":     "camera_outage",
+  "Mobile App Issue":  "mobile_app_issue",
+  "Wiring Issue":      "wiring_issue",
+  "Emergency Service": "emergency_service",
+  "Quote Request":     "quote_request",
+  "Site Inspection":   "site_inspection",
+  "Other":             "other",
+};
 
 type Errors = Partial<Record<string, string>>;
 
@@ -19,33 +34,86 @@ export function NewRequestForm() {
   const [serviceType, setServiceType] = useState("");
   const [urgency, setUrgency]         = useState("");
   const [errors, setErrors]           = useState<Errors>({});
-  const [submitted, setSubmitted]     = useState(false);
+  const [submitted,      setSubmitted]      = useState(false);
+  const [createdId,      setCreatedId]      = useState("");
+  const [requestNumber,  setRequestNumber]  = useState<number | null>(null);
+  const [loading,        setLoading]        = useState(false);
+  const [submitError,    setSubmitError]    = useState<string | null>(null);
 
   function clear(key: string) {
     setErrors(prev => ({ ...prev, [key]: undefined }));
   }
 
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    const data    = new FormData(e.currentTarget);
-    const name    = ((data.get("client-name") as string) ?? "").trim();
-    const phone   = ((data.get("phone")       as string) ?? "").trim();
-    const address = ((data.get("address")     as string) ?? "").trim();
-    const desc    = ((data.get("description") as string) ?? "").trim();
+    const data         = new FormData(e.currentTarget);
+    const clientName   = ((data.get("client-name")   as string) ?? "").trim();
+    const businessName = ((data.get("business-name") as string) ?? "").trim();
+    const phone        = ((data.get("phone")          as string) ?? "").trim();
+    const desc         = ((data.get("description")    as string) ?? "").trim();
+    const notes        = ((data.get("notes")          as string) ?? "").trim();
 
     const next: Errors = {};
-    if (!name)        next["client-name"]  = "Client name is required.";
-    if (!phone)       next.phone           = "Phone number is required.";
-    if (!address)     next.address         = "Site address is required.";
-    if (!serviceType) next.serviceType     = "Please select a service type.";
-    if (!urgency)     next.urgency         = "Please select an urgency level.";
-    if (!desc)        next.description     = "Please describe the issue.";
+    if (!clientName)   next["client-name"] = "Client name is required.";
+    if (!phone)        next.phone          = "Phone number is required.";
+    if (!serviceType)  next.serviceType    = "Please select a service type.";
+    if (!urgency)      next.urgency        = "Please select an urgency level.";
+    if (!desc)         next.description    = "Please describe the issue.";
 
     if (Object.keys(next).length > 0) {
       setErrors(next);
       return;
     }
+
+    setLoading(true);
+    setSubmitError(null);
+
+    const supabase = createClient();
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setSubmitError("Not authenticated. Please sign in again.");
+      setLoading(false);
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      setSubmitError("Could not load your profile. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("service_requests")
+      .insert({
+        organization_id:         profile.organization_id,
+        submitted_by_profile_id: user.id,
+        client_name:             businessName || clientName,
+        client_phone:            phone,
+        service_type:            SERVICE_TYPE_DB[serviceType] ?? serviceType,
+        urgency,
+        description:             desc,
+        notes,
+      })
+      .select("id, request_number")
+      .single();
+
+    if (insertError || !inserted) {
+      setSubmitError(insertError?.message ?? "Failed to create request. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    setCreatedId(inserted.id as string);
+    setRequestNumber((inserted as { id: string; request_number: number | null }).request_number ?? null);
     setSubmitted(true);
+    setLoading(false);
   }
 
   if (submitted) {
@@ -57,18 +125,24 @@ export function NewRequestForm() {
         <div>
           <h2 className="text-xl font-semibold text-foreground">Request Created</h2>
           <p className="text-sm text-muted-foreground mt-2 max-w-sm">
-            The service request has been logged and will appear in the requests queue.
+            <span className="font-mono font-semibold text-foreground">{fmtReqNumber(requestNumber)}</span> has been logged and will appear in the requests queue.
           </p>
         </div>
-        <div className="flex gap-3 mt-2">
-          <Link href="/requests" className={cn(buttonVariants({ size: "sm" }), "h-9")}>
-            View Requests
+        <div className="flex gap-3 mt-2 flex-wrap justify-center">
+          <Link href={`/requests/${createdId}`} className={cn(buttonVariants({ size: "sm" }), "h-9")}>
+            View Request
+          </Link>
+          <Link href="/requests" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9")}>
+            All Requests
           </Link>
           <Button variant="outline" size="sm" className="h-9" onClick={() => {
             setSubmitted(false);
+            setCreatedId("");
+            setRequestNumber(null);
             setServiceType("");
             setUrgency("");
             setErrors({});
+            setSubmitError(null);
           }}>
             Add Another
           </Button>
@@ -118,16 +192,12 @@ export function NewRequestForm() {
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="address" className="text-xs">
-            Site Address <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="address" className="text-xs">Site Address</Label>
           <Input
             id="address" name="address"
             placeholder="Full address including city and zip"
-            className={cn("h-9 text-sm", errors.address && "border-destructive")}
-            onChange={() => clear("address")}
+            className="h-9 text-sm"
           />
-          {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
         </div>
       </section>
 
@@ -193,11 +263,16 @@ export function NewRequestForm() {
         </div>
       </section>
 
-      <div className="flex items-center gap-3 pb-6">
-        <Button type="submit" className="h-9 px-5 text-sm">Create Request</Button>
+      <div className="flex items-center gap-3 pb-6 flex-wrap">
+        <Button type="submit" disabled={loading} className="h-9 px-5 text-sm">
+          {loading ? "Creating…" : "Create Request"}
+        </Button>
         <Link href="/requests" className={cn(buttonVariants({ variant: "outline" }), "h-9 px-5 text-sm")}>
           Cancel
         </Link>
+        {submitError && (
+          <p className="text-xs text-destructive w-full">{submitError}</p>
+        )}
       </div>
     </form>
   );

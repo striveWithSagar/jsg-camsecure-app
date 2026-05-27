@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useMockStore } from "@/lib/mock-store";
-import type { MockRequestItem } from "@/lib/mock-store";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -10,7 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { REQUEST_STATUS_LABELS } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, fmtReqNumber } from "@/lib/utils";
 import { Phone, Clock, Save, Briefcase, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,37 +28,63 @@ const EDITABLE_STATUSES = [
   { value: "cancelled",         label: "Cancelled" },
 ];
 
-export function RequestDetail({ request }: { request: MockRequestItem }) {
-  const store = useMockStore();
+export type RequestDetailData = {
+  id:            string;
+  client:        string;
+  phone:         string;
+  type:          string;
+  urgency:       string;
+  status:        string;
+  description:   string;
+  notes:         string;
+  created:       string;
+  requestNumber: number | null;
+};
 
-  // Start with seed data — sync to stored state after localStorage hydrates
-  const [status, setStatus]           = useState(request.status);
-  const [notes, setNotes]             = useState(request.notes);
+export function RequestDetail({
+  requestId,
+  request,
+}: {
+  requestId: string;
+  request: RequestDetailData | null;
+}) {
+  const [status, setStatus]           = useState(request?.status ?? "new");
+  const [notes, setNotes]             = useState(request?.notes  ?? "");
   const [statusSaved, setStatusSaved] = useState(false);
   const [notesSaved, setNotesSaved]   = useState(false);
 
-  useEffect(() => {
-    if (!store.hydrated) return;
-    const stored = store.requests.find(r => r.id === request.id);
-    if (stored) {
-      setStatus(stored.status);
-      setNotes(stored.notes);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.hydrated]);
+  if (!request) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <p className="text-sm text-muted-foreground">Request not found.</p>
+      </div>
+    );
+  }
 
   const isTerminal = status === "converted" || status === "cancelled";
 
-  function saveStatus() {
-    store.updateRequestStatus(request.id, status);
-    setStatusSaved(true);
-    setTimeout(() => setStatusSaved(false), 2500);
+  async function saveStatus() {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ status })
+      .eq("id", requestId);
+    if (!error) {
+      setStatusSaved(true);
+      setTimeout(() => setStatusSaved(false), 2500);
+    }
   }
 
-  function saveNotes() {
-    store.updateRequestNotes(request.id, notes);
-    setNotesSaved(true);
-    setTimeout(() => setNotesSaved(false), 2500);
+  async function saveNotes() {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ notes })
+      .eq("id", requestId);
+    if (!error) {
+      setNotesSaved(true);
+      setTimeout(() => setNotesSaved(false), 2500);
+    }
   }
 
   return (
@@ -70,14 +95,14 @@ export function RequestDetail({ request }: { request: MockRequestItem }) {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-2 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <PriorityBadge value={request.urgency.toLowerCase()} />
+              <PriorityBadge value={request.urgency} />
               <span className={cn(
                 "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border",
                 STATUS_STYLE[status] ?? STATUS_STYLE.new
               )}>
                 {REQUEST_STATUS_LABELS[status as keyof typeof REQUEST_STATUS_LABELS] ?? status}
               </span>
-              <span className="font-mono text-xs text-muted-foreground">{request.id}</span>
+              <span className="font-mono text-xs text-muted-foreground">{fmtReqNumber(request.requestNumber)}</span>
             </div>
             <h2 className="text-xl font-semibold text-foreground">{request.client}</h2>
             <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
@@ -93,7 +118,7 @@ export function RequestDetail({ request }: { request: MockRequestItem }) {
 
           {!isTerminal && (
             <Link
-              href={`/requests/${request.id}/convert`}
+              href={`/requests/${requestId}/convert`}
               className={cn(buttonVariants({ size: "sm" }), "h-9 gap-1.5 shrink-0")}
             >
               <Briefcase className="h-3.5 w-3.5" /> Convert to Job
@@ -146,7 +171,7 @@ export function RequestDetail({ request }: { request: MockRequestItem }) {
               </Button>
               {notesSaved && (
                 <span className="text-xs text-c-success flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Persisted locally
+                  <CheckCircle2 className="h-3 w-3" /> Saved
                 </span>
               )}
             </div>
@@ -177,7 +202,7 @@ export function RequestDetail({ request }: { request: MockRequestItem }) {
                 </Button>
                 {statusSaved && (
                   <p className="text-xs text-c-success text-center flex items-center justify-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Persisted locally
+                    <CheckCircle2 className="h-3 w-3" /> Saved
                   </p>
                 )}
               </>
@@ -188,7 +213,7 @@ export function RequestDetail({ request }: { request: MockRequestItem }) {
             <div className="rounded-lg border border-border bg-card p-5 space-y-2.5">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Actions</h3>
               <Link
-                href={`/requests/${request.id}/convert`}
+                href={`/requests/${requestId}/convert`}
                 className={cn(buttonVariants({ size: "sm" }), "w-full h-9 text-sm gap-1.5 justify-center")}
               >
                 <Briefcase className="h-3.5 w-3.5" /> Convert to Job

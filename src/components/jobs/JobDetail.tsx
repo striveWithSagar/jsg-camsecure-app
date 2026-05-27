@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useMockStore } from "@/lib/mock-store";
-import type { MockJobItem } from "@/lib/mock-store";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { JobDetailData } from "@/lib/data/jobs";
+import type { TechnicianOption } from "@/lib/data/technicians";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -10,88 +11,141 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { MOCK_TECHNICIANS, STATUS_LABELS, PRIORITY_LABELS } from "@/lib/constants";
+import { STATUS_LABELS, PRIORITY_LABELS } from "@/lib/constants";
+import { fmtJobNumber, fmtReqNumber } from "@/lib/utils";
 import {
   MapPin, CheckCircle2, User, FileText, Upload, UserCog, Save,
 } from "lucide-react";
+import Link from "next/link";
 
 export function JobDetail({
-  jobId,
-  seedJob,
+  job,
+  technicians,
 }: {
-  jobId: string;
-  seedJob: MockJobItem | null;
+  job:         JobDetailData;
+  technicians: TechnicianOption[];
 }) {
-  const store = useMockStore();
+  const [technicianId, setTechnicianId] = useState(job.technicianId ?? "");
+  const [priority,     setPriority]     = useState(job.priority);
+  const [status,       setStatus]       = useState(job.status);
+  const [noteText,     setNoteText]     = useState("");
+  const [notes,        setNotes]        = useState(job.notes);
 
-  // On first render, use seed (avoids SSR mismatch). After hydration, sync to stored state.
-  const initial = seedJob ?? store.jobs.find(j => j.id === jobId);
-  const [technician, setTechnician] = useState(initial?.technician ?? "");
-  const [priority, setPriority]     = useState(initial?.priority   ?? "medium");
-  const [status, setStatus]         = useState(initial?.status     ?? "assigned");
-  const [assignSaved, setAssignSaved] = useState(false);
-  const [statusSaved, setStatusSaved] = useState(false);
-  const [noteSaved, setNoteSaved]     = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignSaved,   setAssignSaved]   = useState(false);
+  const [assignError,   setAssignError]   = useState<string | null>(null);
 
-  // Sync local state with localStorage once the store has hydrated
-  useEffect(() => {
-    if (!store.hydrated) return;
-    const stored = store.jobs.find(j => j.id === jobId);
-    if (stored) {
-      setTechnician(stored.technician);
-      setPriority(stored.priority);
-      setStatus(stored.status);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.hydrated]);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusSaved,   setStatusSaved]   = useState(false);
+  const [statusError,   setStatusError]   = useState<string | null>(null);
 
-  // Pull latest non-mutable fields from store (for display)
-  const job = store.jobs.find(j => j.id === jobId) ?? seedJob;
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteSaved,   setNoteSaved]   = useState(false);
+  const [noteError,   setNoteError]   = useState<string | null>(null);
 
-  if (!job) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <p className="text-sm text-muted-foreground">Job not found.</p>
-      </div>
-    );
-  }
+  const technicianName = technicianId
+    ? (technicians.find(t => t.id === technicianId)?.full_name ?? "Unassigned")
+    : (job.technician || "Unassigned");
 
-  function saveAssignment() {
-    store.updateJobAssignment(job!.id, technician, priority);
+  async function saveAssignment() {
+    setAssignLoading(true);
+    setAssignError(null);
+    setAssignSaved(false);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("jobs")
+      .update({ technician_id: technicianId || null, priority })
+      .eq("id", job.id);
+    setAssignLoading(false);
+    if (error) { setAssignError(error.message); return; }
     setAssignSaved(true);
     setTimeout(() => setAssignSaved(false), 2500);
   }
 
-  function saveStatus() {
-    store.updateJobStatus(job!.id, status);
+  async function saveStatus() {
+    setStatusLoading(true);
+    setStatusError(null);
+    setStatusSaved(false);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("jobs")
+      .update({ status })
+      .eq("id", job.id);
+    setStatusLoading(false);
+    if (error) { setStatusError(error.message); return; }
     setStatusSaved(true);
     setTimeout(() => setStatusSaved(false), 2500);
   }
 
-  function markComplete() {
+  async function markComplete() {
+    const prevStatus = status;
     setStatus("completed");
-    store.updateJobStatus(job!.id, "completed");
+    setStatusLoading(true);
+    setStatusError(null);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("jobs")
+      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .eq("id", job.id);
+    setStatusLoading(false);
+    if (error) { setStatusError(error.message); setStatus(prevStatus); return; }
     setStatusSaved(true);
     setTimeout(() => setStatusSaved(false), 2500);
+  }
+
+  async function saveNote() {
+    if (!noteText.trim()) return;
+    setNoteLoading(true);
+    setNoteError(null);
+    setNoteSaved(false);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setNoteError("Not authenticated."); setNoteLoading(false); return; }
+    const { data: newNote, error } = await supabase
+      .from("job_notes")
+      .insert({
+        organization_id:   job.organizationId,
+        job_id:            job.id,
+        author_profile_id: user.id,
+        body:              noteText.trim(),
+      })
+      .select("id, body, created_at")
+      .single();
+    setNoteLoading(false);
+    if (error) { setNoteError(error.message); return; }
+    setNotes(prev => [...prev, {
+      id:        newNote.id as string,
+      body:      newNote.body as string,
+      createdAt: newNote.created_at as string,
+      author:    "You",
+    }]);
+    setNoteText("");
+    setNoteSaved(true);
+    setTimeout(() => setNoteSaved(false), 2500);
   }
 
   return (
     <div className="space-y-6">
 
-      {/* Header card — reflects current local state */}
+      {/* Header card */}
       <div className="rounded-lg border border-border bg-card p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2.5 mb-2">
               <PriorityBadge value={priority} />
               <StatusBadge value={status} />
-              <span className="text-xs font-mono text-muted-foreground">{job.id}</span>
+              <span className="text-xs font-mono text-muted-foreground">{fmtJobNumber(job.jobNumber)}</span>
             </div>
             <h2 className="text-lg font-semibold text-foreground">{job.client}</h2>
             <p className="text-sm text-muted-foreground">{job.site}</p>
           </div>
-          <Button size="sm" variant="outline" className="h-9 text-xs gap-1.5" onClick={markComplete}>
-            <CheckCircle2 className="h-3.5 w-3.5" /> Mark Complete
+          <Button
+            size="sm" variant="outline" className="h-9 text-xs gap-1.5"
+            onClick={markComplete}
+            disabled={statusLoading || status === "completed"}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {status === "completed" ? "Completed" : "Mark Complete"}
           </Button>
         </div>
       </div>
@@ -115,21 +169,23 @@ export function JobDetail({
               <div className="flex items-start gap-3">
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm text-foreground">{job.address}</p>
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                  >
-                    <MapPin className="h-3 w-3" /> Open in Google Maps
-                  </a>
+                  <p className="text-sm text-foreground">{job.address || "—"}</p>
+                  {job.address && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                    >
+                      <MapPin className="h-3 w-3" /> Open in Google Maps
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Job info — shows current technician/priority from local state */}
+          {/* Job info */}
           <div className="rounded-lg border border-border bg-card p-5 space-y-3">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Job Information</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -139,7 +195,7 @@ export function JobDetail({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Technician</p>
-                <p className="text-foreground font-medium">{technician}</p>
+                <p className="text-foreground font-medium">{technicianName}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Scheduled</p>
@@ -150,19 +206,58 @@ export function JobDetail({
                 <p className="text-foreground font-medium capitalize">{priority}</p>
               </div>
             </div>
-            <Separator className="bg-border" />
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">Job Description</p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Customer reported {job.type.toLowerCase()} issue. Inspect all connections, power supply, and cabling.
-              </p>
-            </div>
+            {(job.dispatcherNotes || job.technicianNotes || job.requestId) && (
+              <>
+                <Separator className="bg-border" />
+                {job.dispatcherNotes && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">Dispatcher Notes</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{job.dispatcherNotes}</p>
+                  </div>
+                )}
+                {job.technicianNotes && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">Technician Notes</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{job.technicianNotes}</p>
+                  </div>
+                )}
+                {job.requestId && (
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Source Request</p>
+                    <Link
+                      href={`/requests/${job.requestId}`}
+                      className="text-xs text-primary hover:underline font-mono"
+                    >
+                      {fmtReqNumber(job.requestNumber)}
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Internal notes — not persisted in mock, replaced by Supabase notes table */}
+          {/* Internal notes history */}
           <div className="rounded-lg border border-border bg-card p-5 space-y-3">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Internal Notes</h3>
-            <p className="text-sm text-muted-foreground">Check previous service history before dispatching. Confirm access with client day before.</p>
+            {notes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No notes yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {notes.map(n => (
+                  <div key={n.id} className="space-y-1 border-l-2 border-border pl-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{n.author}</span>
+                      <span>·</span>
+                      <span>{new Date(n.createdAt).toLocaleString("en-US", {
+                        month: "short", day: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}</span>
+                    </div>
+                    <p className="text-sm text-foreground">{n.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -176,11 +271,16 @@ export function JobDetail({
             </h3>
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground">Technician</p>
-              <Select value={technician} onValueChange={v => { setTechnician(v ?? technician); setAssignSaved(false); }}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+              <Select
+                value={technicianId}
+                onValueChange={v => { setTechnicianId(v ?? technicianId); setAssignSaved(false); }}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Assign technician" />
+                </SelectTrigger>
                 <SelectContent>
-                  {MOCK_TECHNICIANS.map(t => (
-                    <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                  {technicians.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -196,15 +296,19 @@ export function JobDetail({
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" className="w-full h-9 text-xs gap-1.5" onClick={saveAssignment}>
+            <Button
+              variant="outline" className="w-full h-9 text-xs gap-1.5"
+              onClick={saveAssignment} disabled={assignLoading}
+            >
               <Save className="h-3.5 w-3.5" />
-              {assignSaved ? "Saved!" : "Save Assignment"}
+              {assignLoading ? "Saving…" : assignSaved ? "Saved!" : "Save Assignment"}
             </Button>
             {assignSaved && (
               <p className="text-xs text-c-success text-center flex items-center justify-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Persisted locally
+                <CheckCircle2 className="h-3 w-3" /> Saved
               </p>
             )}
+            {assignError && <p className="text-xs text-destructive">{assignError}</p>}
           </div>
 
           {/* Status */}
@@ -218,46 +322,70 @@ export function JobDetail({
                 ))}
               </SelectContent>
             </Select>
-            <Button className="w-full h-9 text-sm gap-1.5" onClick={saveStatus}>
+            <Button
+              className="w-full h-9 text-sm gap-1.5"
+              onClick={saveStatus} disabled={statusLoading}
+            >
               <Save className="h-3.5 w-3.5" />
-              {statusSaved ? "Saved!" : "Save Status"}
+              {statusLoading ? "Saving…" : statusSaved ? "Saved!" : "Save Status"}
             </Button>
             {statusSaved && (
               <p className="text-xs text-c-success text-center flex items-center justify-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Persisted locally
+                <CheckCircle2 className="h-3 w-3" /> Saved
               </p>
             )}
+            {statusError && <p className="text-xs text-destructive">{statusError}</p>}
           </div>
 
           {/* Photos */}
           <div className="rounded-lg border border-border bg-card p-5 space-y-3">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Photos</h3>
             <div className="grid grid-cols-2 gap-2">
-              <button className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border py-5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors">
-                <Upload className="h-4 w-4" /> Before
+              <button disabled className="flex flex-col items-center gap-1 rounded-md border border-dashed border-border py-5 text-xs text-muted-foreground opacity-50 cursor-not-allowed">
+                <Upload className="h-4 w-4" />
+                <span>Before</span>
               </button>
-              <button className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border py-5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors">
-                <Upload className="h-4 w-4" /> After
+              <button disabled className="flex flex-col items-center gap-1 rounded-md border border-dashed border-border py-5 text-xs text-muted-foreground opacity-50 cursor-not-allowed">
+                <Upload className="h-4 w-4" />
+                <span>After</span>
               </button>
             </div>
+            <p className="text-[10px] text-muted-foreground text-center">Photo upload coming soon</p>
           </div>
 
-          {/* Note */}
+          {/* Add note */}
           <div className="rounded-lg border border-border bg-card p-5 space-y-3">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Add Note</h3>
-            <Textarea placeholder="Job notes, findings, parts used…" rows={3} className="text-sm resize-none" />
-            <Button variant="outline" className="w-full h-9 text-xs gap-1.5" onClick={() => { setNoteSaved(true); setTimeout(() => setNoteSaved(false), 2500); }}>
+            <Textarea
+              placeholder="Add an internal note…"
+              rows={3}
+              className="text-sm resize-none"
+              value={noteText}
+              onChange={e => { setNoteText(e.target.value); setNoteSaved(false); }}
+            />
+            <Button
+              variant="outline" className="w-full h-9 text-xs gap-1.5"
+              onClick={saveNote} disabled={noteLoading || !noteText.trim()}
+            >
               <FileText className="h-3.5 w-3.5" />
-              {noteSaved ? "Saved!" : "Save Note"}
+              {noteLoading ? "Saving…" : "Save Note"}
             </Button>
+            {noteSaved && (
+              <p className="text-xs text-c-success text-center flex items-center justify-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Note saved
+              </p>
+            )}
+            {noteError && <p className="text-xs text-destructive">{noteError}</p>}
           </div>
 
           {/* Mark complete */}
           <Button
             className="w-full h-11 text-sm gap-2 bg-c-success-solid hover:bg-c-success-solid/90 text-white"
             onClick={markComplete}
+            disabled={statusLoading || status === "completed"}
           >
-            <CheckCircle2 className="h-4 w-4" /> Mark Job Complete
+            <CheckCircle2 className="h-4 w-4" />
+            {status === "completed" ? "Job Completed" : "Mark Job Complete"}
           </Button>
         </div>
       </div>

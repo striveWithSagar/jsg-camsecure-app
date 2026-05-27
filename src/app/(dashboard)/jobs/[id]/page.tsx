@@ -1,6 +1,9 @@
+import { notFound } from "next/navigation";
+import { getJobById } from "@/lib/data/jobs";
+import { getTechnicians } from "@/lib/data/technicians";
 import { TopBar } from "@/components/layout/TopBar";
 import { JobDetail } from "@/components/jobs/JobDetail";
-import { MOCK_JOBS } from "@/lib/constants";
+import { fmtJobNumber } from "@/lib/utils";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -10,15 +13,19 @@ export default async function JobDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // TODO: replace with Supabase query: supabase.from("jobs").select("*").eq("id", id).single()
-  // seedJob is null for converted jobs not yet in constants; JobDetail reads them from the store
-  const seedJob = MOCK_JOBS.find(j => j.id === id) ?? null;
+
+  const [job, technicians] = await Promise.all([
+    getJobById(id),
+    getTechnicians(),
+  ]);
+
+  if (!job) notFound();
 
   return (
     <div className="flex flex-col min-h-screen">
       <TopBar
-        title={`Job ${id}`}
-        subtitle={seedJob ? `${seedJob.client} · ${seedJob.site}` : ""}
+        title={fmtJobNumber(job.jobNumber)}
+        subtitle={`${job.client} · ${job.site}`}
       />
       <div className="flex-1 px-6 py-6 max-w-4xl space-y-6">
         <Link
@@ -27,7 +34,7 @@ export default async function JobDetailPage({
         >
           <ArrowLeft className="h-3 w-3" /> Back to Job Board
         </Link>
-        <JobDetail jobId={id} seedJob={seedJob} />
+        <JobDetail job={job} technicians={technicians} />
       </div>
     </div>
   );

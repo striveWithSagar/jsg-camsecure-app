@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppProviders } from "./providers";
+import { Toaster } from "@/components/ui/sonner";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -30,7 +30,8 @@ export default function RootLayout({
       className={`${dmSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full">
-        <AppProviders>{children}</AppProviders>
+        {children}
+        <Toaster theme="dark" />
       </body>
     </html>
   );

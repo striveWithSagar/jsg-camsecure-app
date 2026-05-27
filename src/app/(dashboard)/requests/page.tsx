@@ -1,27 +1,42 @@
-"use client";
-
-import { useMockStore } from "@/lib/mock-store";
+import { getServiceRequests } from "@/lib/data/service-requests";
 import { TopBar } from "@/components/layout/TopBar";
-import { PriorityBadge } from "@/components/shared/StatusBadge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { REQUEST_STATUS_LABELS } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Plus, ArrowRight } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
+import { RequestsTable, type RequestRow } from "./RequestsTable";
 
-const REQUEST_STATUS_STYLE: Record<string, string> = {
-  new:               "text-primary bg-primary/10 border-primary/20",
-  reviewing:         "text-c-teal bg-c-teal border-c-teal",
-  ready_to_schedule: "text-c-amber bg-c-amber border-c-amber",
-  converted:         "text-c-success bg-c-success border-c-success",
-  cancelled:         "text-muted-foreground bg-muted/40 border-border",
+const SERVICE_TYPE_LABELS: Record<string, string> = {
+  new_installation:  "New Installation",
+  maintenance:       "Maintenance",
+  dvr_nvr_issue:     "DVR/NVR Issue",
+  camera_outage:     "Camera Outage",
+  mobile_app_issue:  "Mobile App Issue",
+  wiring_issue:      "Wiring Issue",
+  emergency_service: "Emergency Service",
+  quote_request:     "Quote Request",
+  site_inspection:   "Site Inspection",
+  other:             "Other",
 };
 
-export default function RequestsPage() {
-  const { requests } = useMockStore();
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+export default async function RequestsPage() {
+  const raw = await getServiceRequests();
+
+  const requests: RequestRow[] = raw.map(r => ({
+    id:            r.id,
+    requestNumber: r.request_number ?? null,
+    client:        r.client_name,
+    phone:         r.client_phone,
+    type:          SERVICE_TYPE_LABELS[r.service_type] ?? r.service_type,
+    description:   r.description,
+    urgency:       r.urgency,
+    status:        r.status,
+    created:       formatDate(r.created_at),
+  }));
 
   const counts = {
     all:       requests.length,
@@ -33,7 +48,10 @@ export default function RequestsPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar title="Service Requests" subtitle={`${counts.all} total · ${counts.new} new`} />
+      <TopBar
+        title="Service Requests"
+        subtitle={`${counts.all} total · ${counts.new} new`}
+      />
 
       <div className="flex-1 px-6 py-6 space-y-5">
 
@@ -59,53 +77,7 @@ export default function RequestsPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-xs text-muted-foreground font-medium uppercase tracking-wide w-24">ID</TableHead>
-                <TableHead className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Client</TableHead>
-                <TableHead className="text-xs text-muted-foreground font-medium uppercase tracking-wide hidden md:table-cell">Service Type</TableHead>
-                <TableHead className="text-xs text-muted-foreground font-medium uppercase tracking-wide hidden lg:table-cell">Description</TableHead>
-                <TableHead className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Urgency</TableHead>
-                <TableHead className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</TableHead>
-                <TableHead className="text-xs text-muted-foreground font-medium uppercase tracking-wide hidden sm:table-cell">Created</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {requests.map(req => (
-                <TableRow key={req.id} className="border-border hover:bg-muted/20 cursor-pointer">
-                  <TableCell className="font-mono text-xs text-muted-foreground">{req.id}</TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{req.client}</p>
-                      <p className="text-xs text-muted-foreground">{req.phone}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{req.type}</TableCell>
-                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground max-w-xs truncate">{req.description}</TableCell>
-                  <TableCell><PriorityBadge value={req.urgency.toLowerCase()} /></TableCell>
-                  <TableCell>
-                    <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border", REQUEST_STATUS_STYLE[req.status])}>
-                      {REQUEST_STATUS_LABELS[req.status as keyof typeof REQUEST_STATUS_LABELS] ?? req.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{req.created}</TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/requests/${req.id}`}
-                      className={buttonVariants({ variant: "ghost", size: "icon", className: "h-7 w-7" })}
-                    >
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <RequestsTable requests={requests} />
 
       </div>
     </div>
