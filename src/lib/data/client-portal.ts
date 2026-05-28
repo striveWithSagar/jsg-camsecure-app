@@ -170,6 +170,87 @@ export async function getClientRequests(): Promise<ClientRequestItem[]> {
   }));
 }
 
+export type ClientRequestDetail = {
+  id:          string;
+  reqNumber:   number | null;
+  serviceType: string;
+  urgency:     string;
+  status:      string;
+  description: string;
+  createdAt:   string;
+  updatedAt:   string;
+  isTerminal:  boolean;
+  linkedJob: {
+    jobNumber:   number | null;
+    status:      string;
+    site:        string;
+    scheduledAt: string | null;
+    completedAt: string | null;
+  } | null;
+};
+
+type RawJobEmbed = {
+  job_number:   number | null;
+  status:       string;
+  site_name:    string | null;
+  scheduled_at: string | null;
+  completed_at: string | null;
+} | null;
+
+type RequestDetailRawRow = {
+  id:                  string;
+  request_number:      number | null;
+  service_type:        string;
+  urgency:             string;
+  status:              string;
+  description:         string;
+  created_at:          string;
+  updated_at:          string;
+  converted_to_job_id: string | null;
+  jobs:                RawJobEmbed;
+};
+
+// No client_id filter — RLS enforces client_id = auth_client_id() for role 'client'
+// Returns null if RLS blocks the row (other client, walk-in) or row does not exist
+export async function getClientRequestById(id: string): Promise<ClientRequestDetail | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("service_requests")
+    .select(
+      "id, request_number, service_type, urgency, status, description, " +
+      "created_at, updated_at, converted_to_job_id, " +
+      "jobs!converted_to_job_id(job_number, status, site_name, scheduled_at, completed_at)"
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) { console.error("[getClientRequestById]", error.message); return null; }
+  if (!data)  return null;
+
+  const row = data as unknown as RequestDetailRawRow;
+  const j   = Array.isArray(row.jobs) ? (row.jobs[0] ?? null) : row.jobs;
+
+  return {
+    id:          row.id,
+    reqNumber:   row.request_number ?? null,
+    serviceType: SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
+    urgency:     row.urgency,
+    status:      row.status,
+    description: row.description,
+    createdAt:   row.created_at,
+    updatedAt:   row.updated_at,
+    isTerminal:  row.status === "converted" || row.status === "cancelled",
+    linkedJob:   j ? {
+      jobNumber:   j.job_number ?? null,
+      status:      j.status,
+      site:        j.site_name ?? "—",
+      scheduledAt: j.scheduled_at ?? null,
+      completedAt: j.completed_at ?? null,
+    } : null,
+  };
+}
+
 // No client_id filter — RLS enforces client_id = auth_client_id() for role 'client'
 export async function getClientInvoices(): Promise<ClientInvoiceItem[]> {
   const supabase = await createClient();

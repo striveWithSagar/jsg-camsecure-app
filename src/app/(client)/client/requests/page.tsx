@@ -108,7 +108,15 @@ export default async function ClientRequestsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {requests.map(req => <RequestCard key={req.id} req={req} />)}
+          {requests.map(req => (
+            <Link
+              key={req.id}
+              href={`/client/requests/${req.id}`}
+              className="block hover:opacity-80 transition-opacity"
+            >
+              <RequestCard req={req} />
+            </Link>
+          ))}
         </div>
       )}
     </div>
