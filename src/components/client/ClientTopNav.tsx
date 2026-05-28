@@ -8,6 +8,7 @@ const NAV = [
   { label: "Overview",    href: "/client" },
   { label: "Jobs",        href: "/client/jobs" },
   { label: "Invoices",    href: "/client/invoices" },
+  { label: "Requests",    href: "/client/requests" },
   { label: "New Request", href: "/client/requests/new" },
 ];
 
@@ -16,7 +17,8 @@ export function ClientTopNav() {
   return (
     <nav className="flex items-center gap-1">
       {NAV.map(({ label, href }) => {
-        const active = pathname === href || (href !== "/client" && pathname.startsWith(href));
+        const exactMatch = href === "/client" || href === "/client/requests";
+        const active = pathname === href || (!exactMatch && pathname.startsWith(href));
         return (
           <Link
             key={href}

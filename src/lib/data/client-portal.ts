@@ -117,6 +117,59 @@ export async function getClientJobs(): Promise<ClientJobItem[]> {
     });
 }
 
+export type ClientRequestItem = {
+  id:          string;
+  reqNumber:   number | null;
+  serviceType: string;   // display label
+  urgency:     string;   // raw enum: emergency|high|medium|low
+  status:      string;   // raw enum
+  description: string;
+  createdAt:   string;   // raw ISO
+  updatedAt:   string;   // raw ISO
+  isTerminal:  boolean;  // true for converted or cancelled
+  hasJob:      boolean;  // true when converted_to_job_id is set
+};
+
+type RequestRawRow = {
+  id:                  string;
+  request_number:      number | null;
+  service_type:        string;
+  urgency:             string;
+  status:              string;
+  description:         string;
+  created_at:          string;
+  updated_at:          string;
+  converted_to_job_id: string | null;
+};
+
+// No client_id filter — RLS enforces client_id = auth_client_id() for role 'client'
+export async function getClientRequests(): Promise<ClientRequestItem[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("service_requests")
+    .select("id, request_number, service_type, urgency, status, description, created_at, updated_at, converted_to_job_id")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[getClientRequests]", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as RequestRawRow[]).map(row => ({
+    id:          row.id,
+    reqNumber:   row.request_number ?? null,
+    serviceType: SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
+    urgency:     row.urgency,
+    status:      row.status,
+    description: row.description,
+    createdAt:   row.created_at,
+    updatedAt:   row.updated_at,
+    isTerminal:  row.status === "converted" || row.status === "cancelled",
+    hasJob:      !!row.converted_to_job_id,
+  }));
+}
+
 // No client_id filter — RLS enforces client_id = auth_client_id() for role 'client'
 export async function getClientInvoices(): Promise<ClientInvoiceItem[]> {
   const supabase = await createClient();
