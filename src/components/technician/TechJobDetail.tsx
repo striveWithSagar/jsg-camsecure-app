@@ -1,6 +1,7 @@
 import type { JobDetailData } from "@/lib/data/jobs";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
 import { JobStatusWidget } from "@/components/technician/JobStatusWidget";
+import { TechFieldNotes } from "@/components/technician/TechFieldNotes";
 import { fmtJobNumber, fmtDatetime, calcJobAge } from "@/lib/utils";
 import { ArrowLeft, MapPin, Clock, Wrench, Phone } from "lucide-react";
 import Link from "next/link";
@@ -98,6 +99,12 @@ export function TechJobDetail({ job }: { job: JobDetailData }) {
 
       {/* Status widget — writes status to Supabase on every transition */}
       <JobStatusWidget initialStatus={job.status} jobId={job.id} />
+
+      <TechFieldNotes
+        jobId={job.id}
+        orgId={job.organizationId}
+        initialNotes={job.notes}
+      />
 
     </div>
   );

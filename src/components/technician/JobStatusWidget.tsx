@@ -107,17 +107,6 @@ export function JobStatusWidget({ initialStatus, jobId }: { initialStatus: strin
         </p>
       )}
 
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-2">
-          <p className="text-xs text-muted-foreground font-medium">Field notes</p>
-          <span className="text-[10px] text-muted-foreground/60">Coming soon</span>
-        </div>
-        <textarea
-          disabled
-          className="w-full rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground px-3 py-2.5 min-h-[80px] resize-none opacity-50 cursor-not-allowed"
-          placeholder="Field notes — coming soon"
-        />
-      </div>
     </div>
   );
 }
