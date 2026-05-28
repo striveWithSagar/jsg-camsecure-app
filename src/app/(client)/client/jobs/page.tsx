@@ -4,6 +4,7 @@ import { getClientJobs } from "@/lib/data/client-portal";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { fmtJobNumber } from "@/lib/utils";
 import { MapPin, Clock, Wrench } from "lucide-react";
+import Link from "next/link";
 
 export const metadata: Metadata = { title: "Your Jobs · CamSecure Client Portal" };
 
@@ -36,9 +37,6 @@ function JobCard({ job }: { job: ClientJobItem }) {
         <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" />{job.scheduled}</span>
         <span className="flex items-center gap-1.5"><MapPin className="h-3 w-3" />{job.address}</span>
       </div>
-      <div className="pt-2 border-t border-border/50">
-        <p className="text-[10px] text-muted-foreground/60 text-center">Detailed view — coming soon</p>
-      </div>
     </div>
   );
 }
@@ -67,7 +65,11 @@ export default async function ClientJobsPage() {
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Active</p>
           <div className="space-y-3">
-            {active.map(j => <JobCard key={j.id} job={j} />)}
+            {active.map(j => (
+            <Link key={j.id} href={`/client/jobs/${j.id}`} className="block hover:opacity-80 transition-opacity">
+              <JobCard job={j} />
+            </Link>
+          ))}
           </div>
         </div>
       )}
@@ -76,7 +78,11 @@ export default async function ClientJobsPage() {
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Completed</p>
           <div className="space-y-3 opacity-70">
-            {completed.map(j => <JobCard key={j.id} job={j} />)}
+            {completed.map(j => (
+            <Link key={j.id} href={`/client/jobs/${j.id}`} className="block hover:opacity-80 transition-opacity">
+              <JobCard job={j} />
+            </Link>
+          ))}
           </div>
         </div>
       )}

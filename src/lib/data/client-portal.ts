@@ -117,6 +117,90 @@ export async function getClientJobs(): Promise<ClientJobItem[]> {
     });
 }
 
+export type ClientJobDetail = {
+  id:           string;
+  jobNumber:    number | null;
+  serviceType:  string;
+  status:       string;
+  priority:     string;
+  site:         string;
+  address:      string;
+  scheduledAt:  string | null;
+  completedAt:  string | null;
+  createdAt:    string;
+  updatedAt:    string;
+  linkedRequest: {
+    id:        string;
+    reqNumber: number | null;
+    createdAt: string;
+    status:    string;
+  } | null;
+};
+
+type RawRequestEmbed = {
+  request_number: number | null;
+  created_at:     string;
+  status:         string;
+} | null;
+
+type JobDetailRawRow = {
+  id:               string;
+  job_number:       number | null;
+  service_type:     string;
+  status:           string;
+  priority:         string;
+  site_name:        string | null;
+  address:          string | null;
+  scheduled_at:     string | null;
+  completed_at:     string | null;
+  created_at:       string;
+  updated_at:       string;
+  request_id:       string | null;
+  service_requests: RawRequestEmbed;
+};
+
+// No client_id filter — RLS enforces client_id = auth_client_id() for role 'client'
+// Returns null if RLS blocks the row (other client) or row does not exist
+export async function getClientJobById(id: string): Promise<ClientJobDetail | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(
+      "id, job_number, service_type, status, priority, site_name, address, " +
+      "scheduled_at, completed_at, created_at, updated_at, request_id, " +
+      "service_requests!request_id(request_number, created_at, status)"
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) { console.error("[getClientJobById]", error.message); return null; }
+  if (!data)  return null;
+
+  const row = data as unknown as JobDetailRawRow;
+  const sr  = Array.isArray(row.service_requests) ? (row.service_requests[0] ?? null) : row.service_requests;
+
+  return {
+    id:           row.id,
+    jobNumber:    row.job_number ?? null,
+    serviceType:  SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
+    status:       row.status,
+    priority:     row.priority,
+    site:         row.site_name ?? "—",
+    address:      row.address ?? "—",
+    scheduledAt:  row.scheduled_at ?? null,
+    completedAt:  row.completed_at ?? null,
+    createdAt:    row.created_at,
+    updatedAt:    row.updated_at,
+    linkedRequest: (row.request_id && sr) ? {
+      id:        row.request_id,
+      reqNumber: sr.request_number ?? null,
+      createdAt: sr.created_at,
+      status:    sr.status,
+    } : null,
+  };
+}
+
 export type ClientRequestItem = {
   id:          string;
   reqNumber:   number | null;
