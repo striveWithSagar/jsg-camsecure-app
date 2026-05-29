@@ -36,9 +36,11 @@ function sanitizeName(name: string): string {
 export function JobPhotoPanel({
   jobId,
   organizationId,
+  readOnly = false,
 }: {
-  jobId:          string;
-  organizationId: string;
+  jobId:           string;
+  organizationId:  string;
+  readOnly?:       boolean;
 }) {
   const [photos,      setPhotos]      = useState<PhotoEntry[]>([]);
   const [loadState,   setLoadState]   = useState<"loading" | "ready" | "error">("loading");
@@ -222,16 +224,18 @@ export function JobPhotoPanel({
                     </div>
                   )}
 
-                  <button
-                    onClick={() => deletePhoto(photo)}
-                    disabled={!!deletingId}
-                    className="absolute top-1 right-1 h-5 w-5 rounded bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-                    title="Delete photo"
-                  >
-                    {deletingId === photo.id
-                      ? <Loader2 className="h-3 w-3 animate-spin" />
-                      : <X className="h-3 w-3" />}
-                  </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => deletePhoto(photo)}
+                      disabled={!!deletingId}
+                      className="absolute top-1 right-1 h-5 w-5 rounded bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                      title="Delete photo"
+                    >
+                      {deletingId === photo.id
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : <X className="h-3 w-3" />}
+                    </button>
+                  )}
 
                   <p className="absolute bottom-0 left-0 right-0 bg-black/50 text-[9px] text-white px-1.5 py-0.5 truncate">
                     {photo.fileName}
@@ -250,23 +254,27 @@ export function JobPhotoPanel({
         </p>
       )}
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic"
-        className="hidden"
-        onChange={handleFile}
-      />
-      <Button
-        variant="outline"
-        className="w-full h-9 text-xs gap-1.5"
-        onClick={() => { setUploadError(null); fileRef.current?.click(); }}
-        disabled={uploading || loadState === "loading"}
-      >
-        {uploading
-          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading…</>
-          : <><Upload className="h-3.5 w-3.5" />Upload Photo</>}
-      </Button>
+      {!readOnly && (
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            className="hidden"
+            onChange={handleFile}
+          />
+          <Button
+            variant="outline"
+            className="w-full h-9 text-xs gap-1.5"
+            onClick={() => { setUploadError(null); fileRef.current?.click(); }}
+            disabled={uploading || loadState === "loading"}
+          >
+            {uploading
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading…</>
+              : <><Upload className="h-3.5 w-3.5" />Upload Photo</>}
+          </Button>
+        </>
+      )}
     </div>
   );
 }

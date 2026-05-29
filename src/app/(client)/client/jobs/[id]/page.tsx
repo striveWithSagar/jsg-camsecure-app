@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getClientJobById } from "@/lib/data/client-portal";
 import { REQUEST_STATUS_LABELS } from "@/lib/constants";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
+import { JobPhotoPanel } from "@/components/jobs/JobPhotoPanel";
 import { fmtJobNumber, fmtReqNumber, fmtDatetime, calcJobAge, cn } from "@/lib/utils";
 import { ArrowLeft, MapPin, Clock, Circle } from "lucide-react";
 
@@ -170,6 +171,12 @@ export default async function ClientJobDetailPage({
           </div>
         </div>
       )}
+
+      <JobPhotoPanel
+        jobId={job.id}
+        organizationId={job.organizationId}
+        readOnly={true}
+      />
     </div>
   );
 }

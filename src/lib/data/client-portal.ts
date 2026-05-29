@@ -118,17 +118,18 @@ export async function getClientJobs(): Promise<ClientJobItem[]> {
 }
 
 export type ClientJobDetail = {
-  id:           string;
-  jobNumber:    number | null;
-  serviceType:  string;
-  status:       string;
-  priority:     string;
-  site:         string;
-  address:      string;
-  scheduledAt:  string | null;
-  completedAt:  string | null;
-  createdAt:    string;
-  updatedAt:    string;
+  id:             string;
+  organizationId: string;
+  jobNumber:      number | null;
+  serviceType:    string;
+  status:         string;
+  priority:       string;
+  site:           string;
+  address:        string;
+  scheduledAt:    string | null;
+  completedAt:    string | null;
+  createdAt:      string;
+  updatedAt:      string;
   linkedRequest: {
     id:        string;
     reqNumber: number | null;
@@ -145,6 +146,7 @@ type RawRequestEmbed = {
 
 type JobDetailRawRow = {
   id:               string;
+  organization_id:  string;
   job_number:       number | null;
   service_type:     string;
   status:           string;
@@ -167,7 +169,7 @@ export async function getClientJobById(id: string): Promise<ClientJobDetail | nu
   const { data, error } = await supabase
     .from("jobs")
     .select(
-      "id, job_number, service_type, status, priority, site_name, address, " +
+      "id, organization_id, job_number, service_type, status, priority, site_name, address, " +
       "scheduled_at, completed_at, created_at, updated_at, request_id, " +
       "service_requests!request_id(request_number, created_at, status)"
     )
@@ -181,17 +183,18 @@ export async function getClientJobById(id: string): Promise<ClientJobDetail | nu
   const sr  = Array.isArray(row.service_requests) ? (row.service_requests[0] ?? null) : row.service_requests;
 
   return {
-    id:           row.id,
-    jobNumber:    row.job_number ?? null,
-    serviceType:  SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
-    status:       row.status,
-    priority:     row.priority,
-    site:         row.site_name ?? "—",
-    address:      row.address ?? "—",
-    scheduledAt:  row.scheduled_at ?? null,
-    completedAt:  row.completed_at ?? null,
-    createdAt:    row.created_at,
-    updatedAt:    row.updated_at,
+    id:             row.id,
+    organizationId: row.organization_id,
+    jobNumber:      row.job_number ?? null,
+    serviceType:    SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
+    status:         row.status,
+    priority:       row.priority,
+    site:           row.site_name ?? "—",
+    address:        row.address ?? "—",
+    scheduledAt:    row.scheduled_at ?? null,
+    completedAt:    row.completed_at ?? null,
+    createdAt:      row.created_at,
+    updatedAt:      row.updated_at,
     linkedRequest: (row.request_id && sr) ? {
       id:        row.request_id,
       reqNumber: sr.request_number ?? null,
