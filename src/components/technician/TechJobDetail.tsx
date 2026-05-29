@@ -2,6 +2,7 @@ import type { JobDetailData } from "@/lib/data/jobs";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
 import { JobStatusWidget } from "@/components/technician/JobStatusWidget";
 import { TechFieldNotes } from "@/components/technician/TechFieldNotes";
+import { JobPhotoPanel } from "@/components/jobs/JobPhotoPanel";
 import { fmtJobNumber, fmtDatetime, calcJobAge } from "@/lib/utils";
 import { ArrowLeft, MapPin, Clock, Wrench, Phone } from "lucide-react";
 import Link from "next/link";
@@ -105,6 +106,8 @@ export function TechJobDetail({ job }: { job: JobDetailData }) {
         orgId={job.organizationId}
         initialNotes={job.notes}
       />
+
+      <JobPhotoPanel jobId={job.id} organizationId={job.organizationId} />
 
     </div>
   );
