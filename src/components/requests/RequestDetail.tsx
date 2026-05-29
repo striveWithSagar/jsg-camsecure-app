@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
+import { RequestPhotoPanel } from "@/components/requests/RequestPhotoPanel";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -29,16 +30,17 @@ const EDITABLE_STATUSES = [
 ];
 
 export type RequestDetailData = {
-  id:            string;
-  client:        string;
-  phone:         string;
-  type:          string;
-  urgency:       string;
-  status:        string;
-  description:   string;
-  notes:         string;
-  created:       string;
-  requestNumber: number | null;
+  id:             string;
+  organizationId: string;
+  client:         string;
+  phone:          string;
+  type:           string;
+  urgency:        string;
+  status:         string;
+  description:    string;
+  notes:          string;
+  created:        string;
+  requestNumber:  number | null;
 };
 
 export function RequestDetail({
@@ -134,7 +136,7 @@ export function RequestDetail({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Left */}
+        {/* Left — request details, description, internal notes, photo viewer */}
         <div className="lg:col-span-2 space-y-4">
 
           <div className="rounded-lg border border-border bg-card p-5 space-y-4">
@@ -176,6 +178,12 @@ export function RequestDetail({
               )}
             </div>
           </div>
+
+          <RequestPhotoPanel
+            requestId={requestId}
+            organizationId={request.organizationId}
+            canUpload={false}
+          />
         </div>
 
         {/* Right */}

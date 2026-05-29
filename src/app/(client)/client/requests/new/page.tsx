@@ -35,6 +35,7 @@ export default function ClientNewRequestPage() {
   const profile = useClientProfile();
 
   const [submitted,     setSubmitted]     = useState(false);
+  const [requestId,     setRequestId]     = useState<string | null>(null);
   const [requestNumber, setRequestNumber] = useState<number | null>(null);
   const [serviceType,   setServiceType]   = useState("");
   const [urgency,       setUrgency]       = useState("");
@@ -101,7 +102,9 @@ export default function ClientNewRequestPage() {
       return;
     }
 
-    setRequestNumber((data as { id: string; request_number: number | null }).request_number ?? null);
+    const row = data as { id: string; request_number: number | null };
+    setRequestId(row.id);
+    setRequestNumber(row.request_number ?? null);
     setSubmitted(true);
     setLoading(false);
   }
@@ -120,9 +123,15 @@ export default function ClientNewRequestPage() {
             has been received. Our team will be in touch within 1 business day to confirm scheduling.
           </p>
         </div>
-        <div className="flex gap-3 mt-2">
+        <div className="flex flex-wrap gap-3 mt-2 justify-center">
+          {requestId && (
+            <Link href={`/client/requests/${requestId}`} className={cn(buttonVariants({ size: "sm" }), "h-9 gap-1.5")}>
+              <Camera className="h-3.5 w-3.5" /> View Request / Add Photos
+            </Link>
+          )}
           <Button variant="outline" size="sm" className="h-9" onClick={() => {
             setSubmitted(false);
+            setRequestId(null);
             setRequestNumber(null);
             setServiceType("");
             setUrgency("");
@@ -131,7 +140,7 @@ export default function ClientNewRequestPage() {
           }}>
             Submit another
           </Button>
-          <Link href="/client" className={cn(buttonVariants({ size: "sm" }), "h-9")}>
+          <Link href="/client" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9")}>
             Back to overview
           </Link>
         </div>

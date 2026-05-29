@@ -31,16 +31,17 @@ export default async function RequestDetailPage({
   const raw = await getServiceRequestById(id);
 
   const request: RequestDetailData | null = raw ? {
-    id:            raw.id,
-    client:        raw.client_name,
-    phone:         raw.client_phone,
-    type:          SERVICE_TYPE_LABELS[raw.service_type] ?? raw.service_type,
-    urgency:       raw.urgency,
-    status:        raw.status,
-    description:   raw.description,
-    notes:         raw.notes,
-    created:       formatDate(raw.created_at),
-    requestNumber: raw.request_number ?? null,
+    id:             raw.id,
+    organizationId: raw.organization_id,
+    client:         raw.client_name,
+    phone:          raw.client_phone,
+    type:           SERVICE_TYPE_LABELS[raw.service_type] ?? raw.service_type,
+    urgency:        raw.urgency,
+    status:         raw.status,
+    description:    raw.description,
+    notes:          raw.notes,
+    created:        formatDate(raw.created_at),
+    requestNumber:  raw.request_number ?? null,
   } : null;
 
   return (

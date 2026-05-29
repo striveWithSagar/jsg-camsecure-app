@@ -255,15 +255,16 @@ export async function getClientRequests(): Promise<ClientRequestItem[]> {
 }
 
 export type ClientRequestDetail = {
-  id:          string;
-  reqNumber:   number | null;
-  serviceType: string;
-  urgency:     string;
-  status:      string;
-  description: string;
-  createdAt:   string;
-  updatedAt:   string;
-  isTerminal:  boolean;
+  id:             string;
+  organizationId: string;
+  reqNumber:      number | null;
+  serviceType:    string;
+  urgency:        string;
+  status:         string;
+  description:    string;
+  createdAt:      string;
+  updatedAt:      string;
+  isTerminal:     boolean;
   linkedJob: {
     jobNumber:   number | null;
     status:      string;
@@ -283,6 +284,7 @@ type RawJobEmbed = {
 
 type RequestDetailRawRow = {
   id:                  string;
+  organization_id:     string;
   request_number:      number | null;
   service_type:        string;
   urgency:             string;
@@ -302,7 +304,7 @@ export async function getClientRequestById(id: string): Promise<ClientRequestDet
   const { data, error } = await supabase
     .from("service_requests")
     .select(
-      "id, request_number, service_type, urgency, status, description, " +
+      "id, organization_id, request_number, service_type, urgency, status, description, " +
       "created_at, updated_at, converted_to_job_id, " +
       "jobs!converted_to_job_id(job_number, status, site_name, scheduled_at, completed_at)"
     )
@@ -316,15 +318,16 @@ export async function getClientRequestById(id: string): Promise<ClientRequestDet
   const j   = Array.isArray(row.jobs) ? (row.jobs[0] ?? null) : row.jobs;
 
   return {
-    id:          row.id,
-    reqNumber:   row.request_number ?? null,
-    serviceType: SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
-    urgency:     row.urgency,
-    status:      row.status,
-    description: row.description,
-    createdAt:   row.created_at,
-    updatedAt:   row.updated_at,
-    isTerminal:  row.status === "converted" || row.status === "cancelled",
+    id:             row.id,
+    organizationId: row.organization_id,
+    reqNumber:      row.request_number ?? null,
+    serviceType:    SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
+    urgency:        row.urgency,
+    status:         row.status,
+    description:    row.description,
+    createdAt:      row.created_at,
+    updatedAt:      row.updated_at,
+    isTerminal:     row.status === "converted" || row.status === "cancelled",
     linkedJob:   j ? {
       jobNumber:   j.job_number ?? null,
       status:      j.status,

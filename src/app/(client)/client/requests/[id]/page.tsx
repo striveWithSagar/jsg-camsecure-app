@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getClientRequestById } from "@/lib/data/client-portal";
 import { REQUEST_STATUS_LABELS } from "@/lib/constants";
 import { PriorityBadge, StatusBadge } from "@/components/shared/StatusBadge";
+import { RequestPhotoPanel } from "@/components/requests/RequestPhotoPanel";
 import { fmtReqNumber, fmtJobNumber, fmtDatetime, calcJobAge, cn } from "@/lib/utils";
 import { ArrowLeft, Clock } from "lucide-react";
 
@@ -122,6 +123,12 @@ export default async function ClientRequestDetailPage({
           </dl>
         </div>
       )}
+
+      <RequestPhotoPanel
+        requestId={request.id}
+        organizationId={request.organizationId}
+        canUpload={request.status === "new" || request.status === "reviewing"}
+      />
     </div>
   );
 }
