@@ -14,8 +14,9 @@ import {
 import { STATUS_LABELS, PRIORITY_LABELS } from "@/lib/constants";
 import { fmtJobNumber, fmtReqNumber, fmtDatetime, calcJobAge } from "@/lib/utils";
 import {
-  MapPin, CheckCircle2, User, FileText, Upload, UserCog, Save, Clock,
+  MapPin, CheckCircle2, User, FileText, UserCog, Save, Clock,
 } from "lucide-react";
+import { JobPhotoPanel } from "@/components/jobs/JobPhotoPanel";
 import Link from "next/link";
 
 export function JobDetail({
@@ -379,21 +380,7 @@ export function JobDetail({
             </div>
           </div>
 
-          {/* Photos */}
-          <div className="rounded-lg border border-border bg-card p-5 space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Photos</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button disabled className="flex flex-col items-center gap-1 rounded-md border border-dashed border-border py-5 text-xs text-muted-foreground opacity-50 cursor-not-allowed">
-                <Upload className="h-4 w-4" />
-                <span>Before</span>
-              </button>
-              <button disabled className="flex flex-col items-center gap-1 rounded-md border border-dashed border-border py-5 text-xs text-muted-foreground opacity-50 cursor-not-allowed">
-                <Upload className="h-4 w-4" />
-                <span>After</span>
-              </button>
-            </div>
-            <p className="text-[10px] text-muted-foreground text-center">Photo upload coming soon</p>
-          </div>
+          <JobPhotoPanel jobId={job.id} organizationId={job.organizationId} />
 
           {/* Add note */}
           <div className="rounded-lg border border-border bg-card p-5 space-y-3">
