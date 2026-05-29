@@ -17,6 +17,7 @@ import {
   MapPin, CheckCircle2, User, FileText, UserCog, Save, Clock,
 } from "lucide-react";
 import { JobPhotoPanel } from "@/components/jobs/JobPhotoPanel";
+import { JobChecklist } from "@/components/jobs/JobChecklist";
 import Link from "next/link";
 
 export function JobDetail({
@@ -75,7 +76,14 @@ export function JobDetail({
       .update({ status })
       .eq("id", job.id);
     setStatusLoading(false);
-    if (error) { setStatusError(error.message); return; }
+    if (error) {
+      setStatusError(
+        error.message.includes("CHECKLIST_INCOMPLETE")
+          ? "Cannot complete — required checklist items are still pending."
+          : error.message
+      );
+      return;
+    }
     setStatusSaved(true);
     setTimeout(() => setStatusSaved(false), 2500);
   }
@@ -91,7 +99,15 @@ export function JobDetail({
       .update({ status: "completed", completed_at: new Date().toISOString() })
       .eq("id", job.id);
     setStatusLoading(false);
-    if (error) { setStatusError(error.message); setStatus(prevStatus); return; }
+    if (error) {
+      setStatusError(
+        error.message.includes("CHECKLIST_INCOMPLETE")
+          ? "Cannot complete — required checklist items are still pending."
+          : error.message
+      );
+      setStatus(prevStatus);
+      return;
+    }
     setStatusSaved(true);
     setTimeout(() => setStatusSaved(false), 2500);
   }
@@ -238,6 +254,12 @@ export function JobDetail({
               </>
             )}
           </div>
+
+          <JobChecklist
+            jobId={job.id}
+            organizationId={job.organizationId}
+            initialItems={job.checklistItems}
+          />
 
           {/* Internal notes history */}
           <div className="rounded-lg border border-border bg-card p-5 space-y-3">

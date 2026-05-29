@@ -29,7 +29,15 @@ const STATUS_LABELS: Record<string, string> = {
   rescheduled: "Rescheduled",
 };
 
-export function JobStatusWidget({ initialStatus, jobId }: { initialStatus: string; jobId: string }) {
+export function JobStatusWidget({
+  initialStatus,
+  jobId,
+  hasBlockingItems = false,
+}: {
+  initialStatus:    string;
+  jobId:            string;
+  hasBlockingItems?: boolean;
+}) {
   const [status, setStatus] = useState(initialStatus);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
@@ -52,7 +60,11 @@ export function JobStatusWidget({ initialStatus, jobId }: { initialStatus: strin
       .eq("id", jobId);
 
     if (dbError) {
-      setError("Failed to update status. Please try again.");
+      setError(
+        dbError.message.includes("CHECKLIST_INCOMPLETE")
+          ? "Complete all required checklist items before marking this job done."
+          : "Failed to update status. Please try again."
+      );
       setSaving(false);
       return;
     }
@@ -81,18 +93,22 @@ export function JobStatusWidget({ initialStatus, jobId }: { initialStatus: strin
 
       {transitions.length > 0 ? (
         <div className="space-y-2">
-          {transitions.map(({ label, icon: Icon, next, color }) => (
-            <Button
-              key={next}
-              variant="outline"
-              className={cn("w-full justify-start gap-2 h-11", color)}
-              onClick={() => advance(next)}
-              disabled={saving}
-            >
-              <Icon className="h-4 w-4" />
-              {saving ? "Saving…" : label}
-            </Button>
-          ))}
+          {transitions.map(({ label, icon: Icon, next, color }) => {
+            const blocked = next === "completed" && hasBlockingItems;
+            return (
+              <Button
+                key={next}
+                variant="outline"
+                className={cn("w-full justify-start gap-2 h-11", blocked ? "text-muted-foreground" : color)}
+                onClick={() => advance(next)}
+                disabled={saving || blocked}
+                title={blocked ? "Complete all required checklist items first" : undefined}
+              >
+                <Icon className="h-4 w-4" />
+                {saving ? "Saving…" : blocked ? "Complete checklist first" : label}
+              </Button>
+            );
+          })}
         </div>
       ) : (
         <div className="flex items-center gap-2 text-sm text-c-success">

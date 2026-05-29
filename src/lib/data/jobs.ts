@@ -18,6 +18,16 @@ export type JobRow = {
   updatedAt:   string;        // raw ISO
 };
 
+export type ChecklistItem = {
+  id:                   string;
+  position:             number;
+  label:                string;
+  isRequired:           boolean;
+  isCompleted:          boolean;
+  completedAt:          string | null;
+  completedByProfileId: string | null;
+};
+
 export type JobDetailData = {
   id:               string;
   jobNumber:        number | null;
@@ -46,6 +56,7 @@ export type JobDetailData = {
     createdAt: string;
     author:    string;
   }[];
+  checklistItems: ChecklistItem[];
 };
 
 // ── Job Board bucket ─────────────────────────────────────────────────────────
@@ -327,7 +338,8 @@ export async function getJobById(id: string): Promise<JobDetailData | null> {
       clients(name),
       technicians(profiles(full_name)),
       job_notes(id, body, created_at, profiles!author_profile_id(full_name)),
-      service_requests!request_id(request_number, created_at)
+      service_requests!request_id(request_number, created_at),
+      job_checklist_items(id, position, label, is_required, is_completed, completed_at, completed_by_profile_id)
     `)
     .eq("id", id)
     .single();
@@ -349,27 +361,37 @@ export async function getJobById(id: string): Promise<JobDetailData | null> {
     created_at: string;
     profiles:   NoteEmbed;
   };
+  type RawChecklistItem = {
+    id:                     string;
+    position:               number;
+    label:                  string;
+    is_required:            boolean;
+    is_completed:           boolean;
+    completed_at:           string | null;
+    completed_by_profile_id: string | null;
+  };
   type RawDetail = {
-    id:               string;
-    job_number:       number | null;
-    organization_id:  string;
-    service_type:     string;
-    priority:         string;
-    status:           string;
-    site_name:        string | null;
-    address:          string | null;
-    scheduled_at:     string | null;
-    completed_at:     string | null;
-    created_at:       string;
-    updated_at:       string;
-    dispatcher_notes: string;
-    technician_notes: string;
-    request_id:       string | null;
-    technician_id:    string | null;
-    clients:          ClientEmbed;
-    technicians:      TechEmbed;
-    job_notes:        RawNote[] | null;
-    service_requests: ReqEmbed;
+    id:                   string;
+    job_number:           number | null;
+    organization_id:      string;
+    service_type:         string;
+    priority:             string;
+    status:               string;
+    site_name:            string | null;
+    address:              string | null;
+    scheduled_at:         string | null;
+    completed_at:         string | null;
+    created_at:           string;
+    updated_at:           string;
+    dispatcher_notes:     string;
+    technician_notes:     string;
+    request_id:           string | null;
+    technician_id:        string | null;
+    clients:              ClientEmbed;
+    technicians:          TechEmbed;
+    job_notes:            RawNote[] | null;
+    service_requests:     ReqEmbed;
+    job_checklist_items:  RawChecklistItem[] | null;
   };
 
   function extractNoteName(p: NoteEmbed): string {
@@ -390,8 +412,9 @@ export async function getJobById(id: string): Promise<JobDetailData | null> {
     return r.created_at ?? null;
   }
 
-  const row     = data as unknown as RawDetail;
+  const row      = data as unknown as RawDetail;
   const rawNotes = row.job_notes ?? [];
+  const rawItems = row.job_checklist_items ?? [];
 
   return {
     id:               row.id,
@@ -421,5 +444,16 @@ export async function getJobById(id: string): Promise<JobDetailData | null> {
       createdAt: n.created_at,
       author:    extractNoteName(n.profiles),
     })),
+    checklistItems: rawItems
+      .sort((a, b) => a.position - b.position)
+      .map(item => ({
+        id:                   item.id,
+        position:             item.position,
+        label:                item.label,
+        isRequired:           item.is_required,
+        isCompleted:          item.is_completed,
+        completedAt:          item.completed_at ?? null,
+        completedByProfileId: item.completed_by_profile_id ?? null,
+      })),
   };
 }

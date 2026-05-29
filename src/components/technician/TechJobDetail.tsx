@@ -1,13 +1,20 @@
-import type { JobDetailData } from "@/lib/data/jobs";
+"use client";
+
+import { useState } from "react";
+import type { JobDetailData, ChecklistItem } from "@/lib/data/jobs";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
 import { JobStatusWidget } from "@/components/technician/JobStatusWidget";
 import { TechFieldNotes } from "@/components/technician/TechFieldNotes";
+import { TechChecklist } from "@/components/technician/TechChecklist";
 import { JobPhotoPanel } from "@/components/jobs/JobPhotoPanel";
 import { fmtJobNumber, fmtDatetime, calcJobAge } from "@/lib/utils";
 import { ArrowLeft, MapPin, Clock, Wrench, Phone } from "lucide-react";
 import Link from "next/link";
 
 export function TechJobDetail({ job }: { job: JobDetailData }) {
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(job.checklistItems);
+
+  const hasBlockingItems = checklistItems.some(i => i.isRequired && !i.isCompleted);
   const dispatcherContact = job.dispatcherNotes || "Operations Team";
   const ageInfo = calcJobAge(job.createdAt, job.completedAt, job.status);
 
@@ -98,8 +105,18 @@ export function TechJobDetail({ job }: { job: JobDetailData }) {
         </div>
       </div>
 
-      {/* Status widget — writes status to Supabase on every transition */}
-      <JobStatusWidget initialStatus={job.status} jobId={job.id} />
+      {/* Checklist — renders nothing if job has no items */}
+      <TechChecklist
+        initialItems={job.checklistItems}
+        onItemsChange={setChecklistItems}
+      />
+
+      {/* Status widget — receives live hasBlockingItems from checklist state */}
+      <JobStatusWidget
+        initialStatus={job.status}
+        jobId={job.id}
+        hasBlockingItems={hasBlockingItems}
+      />
 
       <TechFieldNotes
         jobId={job.id}
