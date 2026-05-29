@@ -50,6 +50,7 @@ export function JobPhotoPanel({
   const [uploadDone,  setUploadDone]  = useState(false);
   const [deletingId,  setDeletingId]  = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteDone,  setDeleteDone]  = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // All setState calls inside fetchPhotos happen after the first await,
@@ -133,7 +134,8 @@ export function JobPhotoPanel({
       .upload(storagePath, file, { contentType: file.type });
 
     if (upErr) {
-      setUploadError(upErr.message);
+      console.error("[JobPhotoPanel] storage upload failed:", upErr.message);
+      setUploadError("Upload failed — could not store the file. Please try again.");
       setUploading(false);
       return;
     }
@@ -152,7 +154,8 @@ export function JobPhotoPanel({
     if (dbErr) {
       // Rollback: remove the already-uploaded storage object
       await supabase.storage.from("camsecure-media").remove([storagePath]);
-      setUploadError(dbErr.message);
+      console.error("[JobPhotoPanel] db insert failed:", dbErr.message);
+      setUploadError("Upload failed — could not save photo record. Please try again.");
       setUploading(false);
       return;
     }
@@ -166,21 +169,36 @@ export function JobPhotoPanel({
   async function deletePhoto(photo: PhotoEntry) {
     setDeletingId(photo.id);
     setDeleteError(null);
+    setDeleteDone(false);
     const supabase = createClient();
-
-    const { error: stErr } = await supabase.storage
-      .from("camsecure-media")
-      .remove([photo.storagePath]);
-    if (stErr) { setDeleteError(stErr.message); setDeletingId(null); return; }
 
     const { error: dbErr } = await supabase
       .from("job_photos")
       .delete()
       .eq("id", photo.id);
-    if (dbErr) { setDeleteError(dbErr.message); setDeletingId(null); return; }
+
+    if (dbErr) {
+      console.error("[JobPhotoPanel] delete failed:", dbErr.message);
+      setDeleteError("Delete failed. Please try again.");
+      setDeletingId(null);
+      return;
+    }
 
     setPhotos(prev => prev.filter(p => p.id !== photo.id));
     setDeletingId(null);
+
+    // Best-effort storage cleanup after DB row is removed
+    const { error: stErr } = await supabase.storage
+      .from("camsecure-media")
+      .remove([photo.storagePath]);
+
+    if (stErr) {
+      console.warn("[JobPhotoPanel] storage cleanup failed:", photo.storagePath, stErr.message);
+      setDeleteError("Photo removed. Storage cleanup incomplete — contact support if this persists.");
+    } else {
+      setDeleteDone(true);
+      setTimeout(() => setDeleteDone(false), 2500);
+    }
   }
 
   return (
@@ -251,6 +269,11 @@ export function JobPhotoPanel({
       {uploadDone  && (
         <p className="text-xs text-c-success flex items-center justify-center gap-1">
           <CheckCircle2 className="h-3 w-3" /> Photo uploaded
+        </p>
+      )}
+      {deleteDone  && (
+        <p className="text-xs text-c-success flex items-center justify-center gap-1">
+          <CheckCircle2 className="h-3 w-3" /> Photo deleted
         </p>
       )}
 
