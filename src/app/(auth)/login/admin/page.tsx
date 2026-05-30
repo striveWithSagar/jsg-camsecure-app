@@ -37,13 +37,20 @@ export default function AdminLoginPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, is_active")
       .eq("id", authData.user.id)
       .single();
 
     if (!["admin", "owner", "dispatcher"].includes(profile?.role ?? "")) {
       await supabase.auth.signOut();
       setError("This account does not have admin portal access.");
+      setLoading(false);
+      return;
+    }
+
+    if (!profile?.is_active) {
+      await supabase.auth.signOut();
+      setError("This admin account has been deactivated. Please contact the account owner.");
       setLoading(false);
       return;
     }
