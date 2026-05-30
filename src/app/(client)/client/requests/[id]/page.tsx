@@ -5,6 +5,7 @@ import { getClientRequestById } from "@/lib/data/client-portal";
 import { REQUEST_STATUS_LABELS } from "@/lib/constants";
 import { PriorityBadge, StatusBadge } from "@/components/shared/StatusBadge";
 import { RequestPhotoPanel } from "@/components/requests/RequestPhotoPanel";
+import { ClientRequestActions } from "@/components/client/ClientRequestActions";
 import { fmtReqNumber, fmtJobNumber, fmtDatetime, calcJobAge, cn } from "@/lib/utils";
 import { ArrowLeft, Clock } from "lucide-react";
 
@@ -123,6 +124,8 @@ export default async function ClientRequestDetailPage({
           </dl>
         </div>
       )}
+
+      <ClientRequestActions request={request} />
 
       <RequestPhotoPanel
         requestId={request.id}

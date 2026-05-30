@@ -261,7 +261,8 @@ export type ClientRequestDetail = {
   id:             string;
   organizationId: string;
   reqNumber:      number | null;
-  serviceType:    string;
+  serviceType:    string;     // display label, e.g. "New Installation"
+  rawServiceType: string;     // DB enum value, e.g. "new_installation"
   urgency:        string;
   status:         string;
   description:    string;
@@ -325,6 +326,7 @@ export async function getClientRequestById(id: string): Promise<ClientRequestDet
     organizationId: row.organization_id,
     reqNumber:      row.request_number ?? null,
     serviceType:    SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
+    rawServiceType: row.service_type,
     urgency:        row.urgency,
     status:         row.status,
     description:    row.description,
