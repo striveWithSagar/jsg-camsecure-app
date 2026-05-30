@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { ForgotPasswordModal } from "@/components/auth/ForgotPasswordModal";
 
 export default function ClientLoginPage() {
   const router = useRouter();
@@ -117,10 +118,13 @@ export default function ClientLoginPage() {
           </Button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground">
-          Not a client?{" "}
-          <Link href="/" className="text-primary hover:underline">Change role</Link>
-        </p>
+        <div className="flex items-center justify-between text-xs">
+          <ForgotPasswordModal role="client" />
+          <p className="text-muted-foreground">
+            Not a client?{" "}
+            <Link href="/" className="text-primary hover:underline">Change role</Link>
+          </p>
+        </div>
 
       </div>
     </div>

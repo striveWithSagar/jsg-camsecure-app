@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, HardHat, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ForgotPasswordModal } from "@/components/auth/ForgotPasswordModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,10 +123,13 @@ export default function TechnicianLoginPage() {
           </Button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground">
-          Not a technician?{" "}
-          <Link href="/" className="text-primary hover:underline">Change role</Link>
-        </p>
+        <div className="flex items-center justify-between text-xs">
+          <ForgotPasswordModal role="technician" />
+          <p className="text-muted-foreground">
+            Not a technician?{" "}
+            <Link href="/" className="text-primary hover:underline">Change role</Link>
+          </p>
+        </div>
 
       </div>
     </div>

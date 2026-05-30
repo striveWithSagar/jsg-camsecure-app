@@ -18,7 +18,12 @@ type NotificationItem = {
 };
 
 function notificationEntityUrl(entityType: string, entityId: string): string {
-  return entityType === "job" ? `/jobs/${entityId}` : `/requests/${entityId}`;
+  switch (entityType) {
+    case "job":              return `/jobs/${entityId}`;
+    case "client":           return `/clients/${entityId}`;
+    case "technician":       return `/technicians/${entityId}`;
+    default:                 return `/requests/${entityId}`;
+  }
 }
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
@@ -50,7 +55,8 @@ const EVENT_ICON: Record<string, string> = {
   technician_reassigned_away:   "🔁",
   request_converted_to_job:     "🔧",
   request_status_updated_client:"📬",
-  job_completed_client:         "✅",
+  job_completed_client:                "✅",
+  account_password_help_requested:     "🔑",
 };
 
 export function NotificationBell() {
