@@ -37,13 +37,20 @@ export default function TechnicianLoginPage() {
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, is_active")
         .eq("id", user.id)
         .single();
 
       if (profile?.role !== "technician") {
         await supabase.auth.signOut();
         setError("This account does not have technician access.");
+        setLoading(false);
+        return;
+      }
+
+      if (!profile.is_active) {
+        await supabase.auth.signOut();
+        setError("This account is inactive. Please contact admin.");
         setLoading(false);
         return;
       }

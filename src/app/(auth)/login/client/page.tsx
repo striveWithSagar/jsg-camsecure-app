@@ -34,13 +34,20 @@ export default function ClientLoginPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, is_active")
       .eq("id", data.user.id)
       .single();
 
     if (!profile || profile.role !== "client") {
       await supabase.auth.signOut();
       setError("This account does not have client access.");
+      setLoading(false);
+      return;
+    }
+
+    if (!profile.is_active) {
+      await supabase.auth.signOut();
+      setError("This account is inactive. Please contact admin.");
       setLoading(false);
       return;
     }
