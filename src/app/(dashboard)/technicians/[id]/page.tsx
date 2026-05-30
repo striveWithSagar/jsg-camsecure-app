@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getTechnicianById } from "@/lib/data/technicians";
+import { AccountActionsPanel } from "@/components/admin/AccountActionsPanel";
 import { TopBar } from "@/components/layout/TopBar";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -106,8 +107,15 @@ export default async function TechnicianDetailPage({
         {/* Stats + Jobs */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Stats sidebar */}
+          {/* Account management + Stats sidebar */}
           <div className="space-y-4">
+            <AccountActionsPanel
+              profileId={tech.profileId}
+              role="technician"
+              isActive={tech.isActive}
+              name={tech.name}
+              activeJobCount={tech.activeJobs}
+            />
             <div className="rounded-lg border border-border bg-card p-5 space-y-4">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
                 Summary

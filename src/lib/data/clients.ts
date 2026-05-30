@@ -132,15 +132,17 @@ export type ClientInvoiceItem = {
 };
 
 export type ClientDetailData = {
-  id:       string;
-  name:     string;
-  status:   string;
-  contact:  string;
-  email:    string;
-  phone:    string;
-  jobCount: number;
-  jobs:     ClientJobItem[];
-  invoices: ClientInvoiceItem[];
+  id:               string;
+  name:             string;
+  status:           string;
+  contact:          string;
+  email:            string;
+  phone:            string;
+  jobCount:         number;
+  jobs:             ClientJobItem[];
+  invoices:         ClientInvoiceItem[];
+  profileId:        string | null;   // auth user id of primary portal contact
+  profileIsActive:  boolean;         // whether portal account is active
 };
 
 export async function getClientById(id: string): Promise<ClientDetailData | null> {
@@ -150,7 +152,7 @@ export async function getClientById(id: string): Promise<ClientDetailData | null
     .from("clients")
     .select(`
       id, name, status,
-      client_contacts(full_name, email, phone, is_primary),
+      client_contacts(full_name, email, phone, is_primary, profile_id),
       jobs(id, service_type, priority, status, scheduled_at),
       invoices(id, invoice_number, status, total, due_at)
     `)
@@ -164,7 +166,7 @@ export async function getClientById(id: string): Promise<ClientDetailData | null
     return null;
   }
 
-  type ContactEmbed = { full_name: string; email: string; phone: string | null; is_primary: boolean };
+  type ContactEmbed = { full_name: string; email: string; phone: string | null; is_primary: boolean; profile_id: string | null };
   type JobEmbed     = { id: string; service_type: string; priority: string; status: string; scheduled_at: string | null };
   type InvoiceEmbed = { id: string; invoice_number: string; status: string; total: string | number; due_at: string | null };
   type RawDetail = {
@@ -179,6 +181,19 @@ export async function getClientById(id: string): Promise<ClientDetailData | null
   const row      = data as unknown as RawDetail;
   const contacts = row.client_contacts ?? [];
   const primary  = contacts.find(c => c.is_primary) ?? contacts[0] ?? null;
+  const profileId = primary?.profile_id ?? null;
+
+  // Fetch portal account active-status if a profile is linked
+  let profileIsActive = true;
+  if (profileId) {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("is_active")
+      .eq("id", profileId)
+      .single();
+    profileIsActive = prof?.is_active ?? true;
+  }
+
   const rawJobs  = (row.jobs ?? []).sort((a, b) => {
     const aCompleted = ["completed", "cancelled"].includes(a.status);
     const bCompleted = ["completed", "cancelled"].includes(b.status);
@@ -189,12 +204,14 @@ export async function getClientById(id: string): Promise<ClientDetailData | null
   });
 
   return {
-    id:      row.id,
-    name:    row.name,
-    status:  row.status,
-    contact: primary?.full_name ?? "",
-    email:   primary?.email     ?? "",
-    phone:   primary?.phone     ?? "",
+    id:              row.id,
+    name:            row.name,
+    status:          row.status,
+    contact:         primary?.full_name ?? "",
+    email:           primary?.email     ?? "",
+    phone:           primary?.phone     ?? "",
+    profileId,
+    profileIsActive,
     jobCount: (row.jobs ?? []).length,
     jobs: rawJobs.map(j => ({
       id:        j.id,

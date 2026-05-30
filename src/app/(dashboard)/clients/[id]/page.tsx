@@ -7,6 +7,7 @@ import {
   ArrowLeft, Building2, Phone, Mail, Briefcase, Receipt,
 } from "lucide-react";
 import Link from "next/link";
+import { AccountActionsPanel } from "@/components/admin/AccountActionsPanel";
 
 export default async function ClientProfilePage({
   params,
@@ -59,6 +60,14 @@ export default async function ClientProfilePage({
             </div>
           </div>
         </div>
+
+        {/* Account management */}
+        <AccountActionsPanel
+          profileId={client.profileId}
+          role="client"
+          isActive={client.profileIsActive}
+          name={client.contact || client.name}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
