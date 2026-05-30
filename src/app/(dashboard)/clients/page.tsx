@@ -1,9 +1,9 @@
 import { getClientList } from "@/lib/data/clients";
 import { TopBar } from "@/components/layout/TopBar";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Plus, ArrowRight, Building2, Phone, Mail } from "lucide-react";
+import { ArrowRight, Building2, Phone, Mail } from "lucide-react";
 import Link from "next/link";
+import { AddClientDialog } from "@/components/clients/AddClientDialog";
 
 export default async function ClientsPage() {
   const clients = await getClientList();
@@ -21,12 +21,7 @@ export default async function ClientsPage() {
             <span className="text-muted-foreground">total clients ·</span>
             <span className="text-c-success">{activeCount} active</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" className="gap-1.5 h-8 text-xs" disabled>
-              <Plus className="h-3.5 w-3.5" /> Add Client
-            </Button>
-            <span className="text-xs text-muted-foreground">Coming soon</span>
-          </div>
+          <AddClientDialog />
         </div>
 
         {/* Client cards grid */}

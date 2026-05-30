@@ -402,27 +402,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "action is required" }, { status: 400 });
   }
 
-  // 3. Dispatch to action handler
+  // 3. Dispatch to action handler (wrapped so unhandled throws return clean JSON)
   let result: ActionResult;
 
-  switch (action) {
-    case "create_client_account":
-      result = await createClientAccount(body, orgId);
-      break;
-    case "create_technician_account":
-      result = await createTechnicianAccount(body, orgId);
-      break;
-    case "deactivate_account":
-      result = await deactivateAccount(body, orgId);
-      break;
-    case "reactivate_account":
-      result = await reactivateAccount(body, orgId);
-      break;
-    case "reset_account_password":
-      result = await resetAccountPassword(body, orgId);
-      break;
-    default:
-      return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+  try {
+    switch (action) {
+      case "create_client_account":
+        result = await createClientAccount(body, orgId);
+        break;
+      case "create_technician_account":
+        result = await createTechnicianAccount(body, orgId);
+        break;
+      case "deactivate_account":
+        result = await deactivateAccount(body, orgId);
+        break;
+      case "reactivate_account":
+        result = await reactivateAccount(body, orgId);
+        break;
+      case "reset_account_password":
+        result = await resetAccountPassword(body, orgId);
+        break;
+      default:
+        return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+    }
+  } catch (err) {
+    console.error("[/api/admin/accounts]", err);
+    return NextResponse.json(
+      { error: String(err) },
+      { status: 500 }
+    );
   }
 
   if (!result.success) {
