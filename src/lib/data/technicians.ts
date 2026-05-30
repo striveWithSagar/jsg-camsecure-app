@@ -79,10 +79,11 @@ export async function getTechnicianList(): Promise<TechnicianRow[]> {
 }
 
 export type TechnicianOption = {
-  id:        string;
-  full_name: string;
-  specialty: string | null;
-  status:    string;
+  id:         string;
+  profile_id: string | null;
+  full_name:  string;
+  specialty:  string | null;
+  status:     string;
 };
 
 export async function getTechnicians(): Promise<TechnicianOption[]> {
@@ -92,7 +93,7 @@ export async function getTechnicians(): Promise<TechnicianOption[]> {
   // profiles_select_own_org RLS allows admin to read all profiles in their org.
   const { data, error } = await supabase
     .from("technicians")
-    .select("id, specialty, status, profiles(full_name)");
+    .select("id, profile_id, specialty, status, profiles(full_name)");
 
   if (error) {
     console.error("[getTechnicians]", error.message);
@@ -101,10 +102,11 @@ export async function getTechnicians(): Promise<TechnicianOption[]> {
 
   type ProfileEmbed = { full_name: string } | { full_name: string }[] | null;
   type RawRow = {
-    id:        string;
-    specialty: string | null;
-    status:    string;
-    profiles:  ProfileEmbed;
+    id:         string;
+    profile_id: string | null;
+    specialty:  string | null;
+    status:     string;
+    profiles:   ProfileEmbed;
   };
 
   function extractName(p: ProfileEmbed): string {
@@ -115,10 +117,11 @@ export async function getTechnicians(): Promise<TechnicianOption[]> {
 
   return ((data ?? []) as unknown as RawRow[])
     .map(t => ({
-      id:        t.id,
-      full_name: extractName(t.profiles),
-      specialty: t.specialty,
-      status:    t.status,
+      id:         t.id,
+      profile_id: t.profile_id ?? null,
+      full_name:  extractName(t.profiles),
+      specialty:  t.specialty,
+      status:     t.status,
     }))
     .sort((a, b) => a.full_name.localeCompare(b.full_name));
 }

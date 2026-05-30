@@ -124,7 +124,7 @@ export function TechJobDetail({ job }: { job: JobDetailData }) {
         initialNotes={job.notes}
       />
 
-      <JobPhotoPanel jobId={job.id} organizationId={job.organizationId} />
+      <JobPhotoPanel jobId={job.id} organizationId={job.organizationId} notifyOnUpload={true} />
 
     </div>
   );

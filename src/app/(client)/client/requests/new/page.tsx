@@ -107,6 +107,19 @@ export default function ClientNewRequestPage() {
     setRequestNumber(row.request_number ?? null);
     setSubmitted(true);
     setLoading(false);
+
+    // Notify admins of new request (best-effort — does not block success)
+    const reqLabel = `REQ-${String(row.request_number ?? 0).padStart(4, "0")}`;
+    void supabase.from("notifications").insert({
+      organization_id:  profile.orgId,
+      actor_profile_id: user.id,
+      recipient_role:   "admin",
+      event_type:       "client_request_created",
+      title:            `New request from ${profile.companyName}`,
+      body:             `${reqLabel} · ${SERVICE_TYPE_MAP[serviceType] ?? serviceType} · ${urgency}`,
+      entity_type:      "service_request",
+      entity_id:        row.id,
+    });
   }
 
   if (submitted) {

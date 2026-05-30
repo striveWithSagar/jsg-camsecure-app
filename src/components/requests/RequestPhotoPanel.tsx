@@ -163,6 +163,17 @@ export function RequestPhotoPanel({
     setUploadDone(true);
     setTimeout(() => setUploadDone(false), 2500);
     triggerReload();
+
+    // Notify admins of new request photo (best-effort, only when canUpload=true i.e. client upload)
+    void supabase.from("notifications").insert({
+      organization_id:  organizationId,
+      actor_profile_id: user.id,
+      recipient_role:   "admin",
+      event_type:       "client_request_photo_uploaded",
+      title:            "New photo attached to request",
+      entity_type:      "service_request",
+      entity_id:        requestId,
+    });
   }
 
   async function deletePhoto(photo: PhotoEntry) {

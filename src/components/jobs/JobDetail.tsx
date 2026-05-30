@@ -64,6 +64,37 @@ export function JobDetail({
     if (error) { setAssignError(error.message); return; }
     setAssignSaved(true);
     setTimeout(() => setAssignSaved(false), 2500);
+
+    // Notifications: notify new + old technicians (best-effort, no admin self-notification)
+    const jobLabel = `JOB-${String(job.jobNumber ?? 0).padStart(4, "0")}`;
+    const newTech = technicians.find(t => t.id === technicianId);
+    const oldTech = technicians.find(t => t.id === job.technicianId);
+    const insertions = [];
+    if (newTech?.profile_id) {
+      insertions.push({
+        organization_id:     job.organizationId,
+        actor_profile_id:    null,
+        recipient_profile_id: newTech.profile_id,
+        event_type:          "admin_technician_assigned",
+        title:               `You have been assigned to ${jobLabel}`,
+        entity_type:         "job",
+        entity_id:           job.id,
+      });
+    }
+    if (oldTech?.profile_id && oldTech.id !== newTech?.id) {
+      insertions.push({
+        organization_id:     job.organizationId,
+        actor_profile_id:    null,
+        recipient_profile_id: oldTech.profile_id,
+        event_type:          "technician_reassigned_away",
+        title:               `You have been unassigned from ${jobLabel}`,
+        entity_type:         "job",
+        entity_id:           job.id,
+      });
+    }
+    if (insertions.length > 0) {
+      void supabase.from("notifications").insert(insertions);
+    }
   }
 
   async function saveStatus() {

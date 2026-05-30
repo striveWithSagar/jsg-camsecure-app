@@ -50,6 +50,20 @@ export function TechFieldNotes({ jobId, orgId, initialNotes }: Props) {
       author:    "You",
     }]);
     setNoteText("");
+
+    // Notify admins of new field note (best-effort)
+    void supabase.from("notifications").insert({
+      organization_id:  orgId,
+      actor_profile_id: user.id,
+      recipient_role:   "admin",
+      event_type:       "technician_field_note_added",
+      title:            `Field note added to JOB-${jobId.slice(-4)}`,
+      body:             (newNote.body as string).length > 80
+        ? (newNote.body as string).slice(0, 80) + "…"
+        : (newNote.body as string),
+      entity_type:      "job",
+      entity_id:        jobId,
+    });
   }
 
   return (

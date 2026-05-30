@@ -37,10 +37,12 @@ export function JobPhotoPanel({
   jobId,
   organizationId,
   readOnly = false,
+  notifyOnUpload = false,
 }: {
-  jobId:           string;
-  organizationId:  string;
-  readOnly?:       boolean;
+  jobId:            string;
+  organizationId:   string;
+  readOnly?:        boolean;
+  notifyOnUpload?:  boolean;
 }) {
   const [photos,      setPhotos]      = useState<PhotoEntry[]>([]);
   const [loadState,   setLoadState]   = useState<"loading" | "ready" | "error">("loading");
@@ -164,6 +166,19 @@ export function JobPhotoPanel({
     setUploadDone(true);
     setTimeout(() => setUploadDone(false), 2500);
     triggerReload();
+
+    // Notify admins when a technician uploads (notifyOnUpload=true on tech portal)
+    if (notifyOnUpload) {
+      void supabase.from("notifications").insert({
+        organization_id:  organizationId,
+        actor_profile_id: user.id,
+        recipient_role:   "admin",
+        event_type:       "job_photo_uploaded",
+        title:            "New photo uploaded for job",
+        entity_type:      "job",
+        entity_id:        jobId,
+      });
+    }
   }
 
   async function deletePhoto(photo: PhotoEntry) {

@@ -1,9 +1,10 @@
 "use client";
 
-import { Search, Bell, Plus, Menu } from "lucide-react";
+import { Search, Plus, Menu } from "lucide-react";
+import { NotificationBell } from "./NotificationBell";
 import { useProfile } from "@/components/providers/ProfileProvider";
 import { Input } from "@/components/ui/input";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -65,10 +66,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
         </DropdownMenu>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative h-8 w-8">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-        </Button>
+        <NotificationBell />
 
         {/* User */}
         <Avatar className="h-7 w-7 cursor-pointer">

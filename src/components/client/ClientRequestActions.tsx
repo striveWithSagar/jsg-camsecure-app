@@ -101,6 +101,20 @@ export function ClientRequestActions({ request }: Props) {
     setSaveDone(true);
     setTimeout(() => setSaveDone(false), 3000);
     setEditing(false);
+
+    // Notify admins of client edit (best-effort)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      void supabase.from("notifications").insert({
+        organization_id:  request.organizationId,
+        actor_profile_id: user.id,
+        recipient_role:   "admin",
+        event_type:       "client_request_edited",
+        title:            `Request REQ-${String(request.reqNumber ?? 0).padStart(4, "0")} updated by client`,
+        entity_type:      "service_request",
+        entity_id:        request.id,
+      });
+    }
   }
 
   async function cancelRequest() {
@@ -119,6 +133,20 @@ export function ClientRequestActions({ request }: Props) {
     }
     setCurrentStatus("cancelled");
     setCancelConfirm(false);
+
+    // Notify admins of cancellation (best-effort)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      void supabase.from("notifications").insert({
+        organization_id:  request.organizationId,
+        actor_profile_id: user.id,
+        recipient_role:   "admin",
+        event_type:       "client_request_cancelled",
+        title:            `Request REQ-${String(request.reqNumber ?? 0).padStart(4, "0")} cancelled by client`,
+        entity_type:      "service_request",
+        entity_id:        request.id,
+      });
+    }
   }
 
   return (
