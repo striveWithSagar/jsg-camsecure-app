@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import type { JobBucket, JobRow } from "@/lib/data/jobs";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
 import { fmtJobNumber } from "@/lib/utils";
-import { AlertTriangle, Calendar, ChevronDown, ChevronRight, Clock, User } from "lucide-react";
+import { AlertTriangle, Calendar, ChevronDown, ChevronRight, Clock, Download, User } from "lucide-react";
+import { DateTimeInput } from "@/components/ui/date-time-input";
 import Link from "next/link";
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -315,6 +316,16 @@ export function JobBoard({ bucket, dateParam }: { bucket: JobBucket; dateParam: 
     router.push(`/jobs?date=${d}`);
   }
 
+  // Week export — compute Sunday from the Monday stored in bucket.selectedDate
+  const weekEnd = bucket.isWeekView ? (() => {
+    const d = new Date(bucket.selectedDate + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 6);
+    return d.toISOString().slice(0, 10);
+  })() : "";
+  const weekExportHref = bucket.isWeekView
+    ? `/api/admin/reports/jobs/weekly?start=${bucket.selectedDate}&end=${weekEnd}`
+    : "";
+
   const doneLabel =
     dateParam === todayStr      ? "Completed Today" :
     dateParam === tomorrowStr   ? "Completed Tomorrow" :
@@ -337,13 +348,14 @@ export function JobBoard({ bucket, dateParam }: { bucket: JobBucket; dateParam: 
           <button className={tabClass("today")}    onClick={() => nav(todayStr)}>Today</button>
           <button className={tabClass("tomorrow")} onClick={() => nav(tomorrowStr)}>Tomorrow</button>
           <button className={tabClass("week")}     onClick={() => nav("week")}>This Week</button>
-          {/* Native date picker — styled to blend with tabs */}
-          <input
+          {/* Date picker tab — uses DateTimeInput for reliable picker trigger */}
+          <DateTimeInput
             type="date"
             value={activeTab === "custom" ? dateParam : ""}
-            onChange={e => e.target.value && nav(e.target.value)}
-            className="h-7 px-2 text-xs text-muted-foreground bg-transparent rounded hover:text-foreground cursor-pointer outline-none"
+            onChange={e => (e.target as HTMLInputElement).value && nav((e.target as HTMLInputElement).value)}
             title="Pick a date"
+            className="h-7 text-xs text-muted-foreground bg-transparent border-0 shadow-none focus-visible:ring-0 dark:bg-transparent hover:text-foreground cursor-pointer px-2"
+            wrapperClassName="inline-flex items-center"
           />
         </div>
 
@@ -381,6 +393,19 @@ export function JobBoard({ bucket, dateParam }: { bucket: JobBucket; dateParam: 
             {bucket.active.length + bucket.overdue.length + bucket.unscheduled.length} active
           </span>
         </div>
+
+        {/* Weekly Excel export — only shown in This Week view */}
+        {bucket.isWeekView && (
+          <a
+            href={weekExportHref}
+            download
+            className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md border border-border bg-card text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors shrink-0"
+            title={`Download weekly report (${bucket.selectedDate} to ${weekEnd})`}
+          >
+            <Download className="h-3 w-3" />
+            Export Weekly Report
+          </a>
+        )}
       </div>
 
       {/* ── Week view ── */}

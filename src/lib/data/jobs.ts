@@ -457,3 +457,190 @@ export async function getJobById(id: string): Promise<JobDetailData | null> {
       })),
   };
 }
+
+// ── Weekly export ─────────────────────────────────────────────────────────────
+
+export type ExportJobRow = {
+  id:            string;
+  jobNumber:     number | null;
+  client:        string;
+  siteName:      string;
+  address:       string;
+  serviceType:   string;
+  priority:      string;
+  status:        string;
+  technician:    string;
+  scheduledAt:   string | null;
+  createdAt:     string;
+  completedAt:   string | null;
+  adminNotes:    string;
+  techNotes:     string;
+  clientConcern: string; // from service_requests.description
+  invoiceNumber: string;
+  invoiceStatus: string;
+  invoiceTotal:  number | null;
+  photoCount:    number;
+  exportReason:  string; // "Scheduled this week" | "Overdue carry-forward" | "Unscheduled"
+};
+
+/**
+ * Returns ALL jobs belonging to an organization that fall in the export window:
+ *   - Jobs with scheduled_at in [weekStart, weekEnd] (any status)
+ *   - Active non-terminal jobs with scheduled_at before weekStart (overdue carry-forward)
+ *   - Active non-terminal jobs with no scheduled_at (unscheduled)
+ *
+ * This is intentionally broader than getJobBoardData which skips terminal jobs
+ * and uses a 90-day cutoff — the weekly export needs the full picture.
+ */
+export async function getJobsForWeeklyExport(
+  orgId:      string,
+  weekStart:  string, // YYYY-MM-DD (Monday)
+  weekEnd:    string, // YYYY-MM-DD (Sunday)
+): Promise<ExportJobRow[]> {
+  const supabase = await createClient();
+
+  const weekStartISO     = weekStart + "T00:00:00+00:00";
+  const weekEndExclusive = (() => {
+    const d = new Date(weekEnd + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10) + "T00:00:00+00:00";
+  })();
+
+  // Two separate queries to avoid complex nested OR filter syntax
+  const [weekResult, overdueResult] = await Promise.all([
+    // A: ALL jobs scheduled within this week (any status)
+    supabase
+      .from("jobs")
+      .select(`
+        id, job_number, service_type, priority, status,
+        site_name, address, scheduled_at, completed_at, created_at, updated_at,
+        dispatcher_notes, technician_notes,
+        clients(name),
+        technicians(profiles(full_name)),
+        service_requests!request_id(description),
+        invoices(invoice_number, status, total),
+        job_photos(id)
+      `)
+      .eq("organization_id", orgId)
+      .gte("scheduled_at", weekStartISO)
+      .lt("scheduled_at", weekEndExclusive)
+      .order("scheduled_at", { ascending: true }),
+
+    // B: Active overdue + unscheduled jobs (not in the week window but still open)
+    supabase
+      .from("jobs")
+      .select(`
+        id, job_number, service_type, priority, status,
+        site_name, address, scheduled_at, completed_at, created_at, updated_at,
+        dispatcher_notes, technician_notes,
+        clients(name),
+        technicians(profiles(full_name)),
+        service_requests!request_id(description),
+        invoices(invoice_number, status, total),
+        job_photos(id)
+      `)
+      .eq("organization_id", orgId)
+      .neq("status", "completed")
+      .neq("status", "cancelled")
+      .or(`scheduled_at.lt.${weekStartISO},scheduled_at.is.null`)
+      .order("scheduled_at", { ascending: true, nullsFirst: false }),
+  ]);
+
+  if (weekResult.error)    console.error("[getJobsForWeeklyExport] week query:", weekResult.error.message);
+  if (overdueResult.error) console.error("[getJobsForWeeklyExport] overdue query:", overdueResult.error.message);
+
+  type RawExportRow = {
+    id:                string;
+    job_number:        number | null;
+    service_type:      string;
+    priority:          string;
+    status:            string;
+    site_name:         string | null;
+    address:           string | null;
+    scheduled_at:      string | null;
+    completed_at:      string | null;
+    created_at:        string;
+    updated_at:        string;
+    dispatcher_notes:  string;
+    technician_notes:  string;
+    clients:           { name: string } | { name: string }[] | null;
+    technicians:       { profiles: { full_name: string } | { full_name: string }[] | null }
+                     | { profiles: { full_name: string } | { full_name: string }[] | null }[] | null;
+    service_requests:  { description: string } | { description: string }[] | null;
+    invoices:          { invoice_number: string; status: string; total: string | number }[]
+                     | { invoice_number: string; status: string; total: string | number } | null;
+    job_photos:        { id: string }[] | null;
+  };
+
+  function mapExportRow(row: RawExportRow): ExportJobRow {
+    const clientName = Array.isArray(row.clients)
+      ? (row.clients[0]?.name ?? "Unknown")
+      : (row.clients?.name ?? "Unknown");
+
+    const techProfiles = Array.isArray(row.technicians)
+      ? row.technicians[0]?.profiles
+      : (row.technicians as { profiles: unknown } | null)?.profiles;
+    const techName = Array.isArray(techProfiles)
+      ? ((techProfiles[0] as { full_name: string })?.full_name ?? "Unassigned")
+      : ((techProfiles as { full_name: string } | null)?.full_name ?? "Unassigned");
+
+    const clientNotes = Array.isArray(row.service_requests)
+      ? (row.service_requests[0]?.description ?? "")
+      : ((row.service_requests as { description: string } | null)?.description ?? "");
+
+    const inv = Array.isArray(row.invoices)
+      ? row.invoices[0]
+      : (row.invoices as { invoice_number: string; status: string; total: string | number } | null);
+
+    return {
+      id:            row.id,
+      jobNumber:     row.job_number ?? null,
+      client:        clientName,
+      siteName:      row.site_name ?? "—",
+      address:       row.address ?? "—",
+      serviceType:   SERVICE_TYPE_LABELS[row.service_type] ?? row.service_type,
+      priority:      row.priority,
+      status:        row.status,
+      technician:    techName,
+      scheduledAt:   row.scheduled_at ?? null,
+      createdAt:     row.created_at,
+      completedAt:   row.completed_at ?? null,
+      adminNotes:    row.dispatcher_notes ?? "",
+      techNotes:     row.technician_notes ?? "",
+      clientConcern: clientNotes,
+      invoiceNumber: inv?.invoice_number ?? "—",
+      invoiceStatus: inv?.status ?? "—",
+      invoiceTotal:  inv ? Number(inv.total) : null,
+      photoCount:    (row.job_photos ?? []).length,
+      exportReason:  "", // set by caller
+    };
+  }
+
+  // Set export reason AFTER mapping so we know which query each row came from
+  const weekRows = ((weekResult.data ?? []) as unknown as RawExportRow[]).map(row => ({
+    ...mapExportRow(row),
+    exportReason: "Scheduled this week",
+  }));
+  const overdueRows = ((overdueResult.data ?? []) as unknown as RawExportRow[]).map(row => {
+    const mapped = mapExportRow(row);
+    return {
+      ...mapped,
+      exportReason: mapped.scheduledAt ? "Overdue carry-forward" : "Unscheduled",
+    };
+  });
+
+  // Deduplicate — a job could theoretically appear in both (edge case: same ID)
+  const seen = new Set(weekRows.map(r => r.id));
+  const merged = [...weekRows, ...overdueRows.filter(r => !seen.has(r.id))];
+
+  // Sort: priority first, then scheduled_at
+  const PORDER = ["emergency", "high", "medium", "low"];
+  merged.sort((a, b) => {
+    const pa = PORDER.indexOf(a.priority);
+    const pb = PORDER.indexOf(b.priority);
+    if (pa !== pb) return pa - pb;
+    return (a.scheduledAt ?? "").localeCompare(b.scheduledAt ?? "");
+  });
+
+  return merged;
+}
