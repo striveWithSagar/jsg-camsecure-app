@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useProfile } from "@/components/providers/ProfileProvider";
 type NotificationItem = {
   id:                 string;
   eventType:          string;
@@ -61,73 +62,96 @@ const EVENT_ICON: Record<string, string> = {
 
 export function NotificationBell() {
   const router  = useRouter();
+  const profile = useProfile(); // provides role for recipient filtering
   const [items, setItems]   = useState<NotificationItem[]>([]);
   const [open,  setOpen]    = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Fetch user ID once on mount — needed to filter profile-specific notifications
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      if (data.user) setUserId(data.user.id);
+    });
+  }, []);
 
   const unreadCount = items.length;
+
+  // Build PostgREST OR filter: show notifications that are either
+  //   (a) role-based for my role  (recipient_role = my_role, no specific profile)
+  //   (b) general broadcast       (no role, no profile)
+  //   (c) addressed to me         (recipient_profile_id = my_user_id)
+  // This prevents admins from seeing technician-targeted "You have been assigned" notifications.
+  function recipientFilter(): string | null {
+    if (!userId) return null;
+    const role = profile.role;
+    return [
+      `and(recipient_role.eq.${role},recipient_profile_id.is.null)`,
+      `and(recipient_role.is.null,recipient_profile_id.is.null)`,
+      `recipient_profile_id.eq.${userId}`,
+    ].join(",");
+  }
+
+  function mapRow(r: Record<string, unknown>): NotificationItem {
+    return {
+      id:                 r.id as string,
+      eventType:          r.event_type as string,
+      title:              r.title as string,
+      body:               (r.body as string | null) ?? null,
+      entityType:         r.entity_type as string,
+      entityId:           r.entity_id as string,
+      actorProfileId:     (r.actor_profile_id as string | null) ?? null,
+      recipientProfileId: (r.recipient_profile_id as string | null) ?? null,
+      recipientRole:      (r.recipient_role as string | null) ?? null,
+      isRead:             r.is_read as boolean,
+      createdAt:          r.created_at as string,
+    };
+  }
 
   // All setState calls inside loadNotifications happen after the first await —
   // satisfies react-hooks/set-state-in-effect.
   useEffect(() => {
+    if (!userId) return; // wait until user ID is known
     async function loadNotifications() {
       const supabase = createClient();
-      const { data, error } = await supabase
+      const filter   = recipientFilter();
+      let query = supabase
         .from("notifications")
         .select("id, event_type, title, body, entity_type, entity_id, actor_profile_id, recipient_profile_id, recipient_role, is_read, created_at")
         .eq("is_read", false)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (filter) query = query.or(filter);
+      const { data, error } = await query;
       if (!error && data) {
-        setItems((data as Record<string, unknown>[]).map(r => ({
-          id:                 r.id as string,
-          eventType:          r.event_type as string,
-          title:              r.title as string,
-          body:               (r.body as string | null) ?? null,
-          entityType:         r.entity_type as string,
-          entityId:           r.entity_id as string,
-          actorProfileId:     (r.actor_profile_id as string | null) ?? null,
-          recipientProfileId: (r.recipient_profile_id as string | null) ?? null,
-          recipientRole:      (r.recipient_role as string | null) ?? null,
-          isRead:             r.is_read as boolean,
-          createdAt:          r.created_at as string,
-        })));
+        setItems((data as Record<string, unknown>[]).map(mapRow));
       }
     }
 
     loadNotifications();
     const interval = setInterval(loadNotifications, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-fetch when dropdown opens
   useEffect(() => {
-    if (!open) return;
+    if (!open || !userId) return;
     async function loadOnOpen() {
       const supabase = createClient();
-      const { data, error } = await supabase
+      const filter   = recipientFilter();
+      let query = supabase
         .from("notifications")
         .select("id, event_type, title, body, entity_type, entity_id, actor_profile_id, recipient_profile_id, recipient_role, is_read, created_at")
         .eq("is_read", false)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (filter) query = query.or(filter);
+      const { data, error } = await query;
       if (!error && data) {
-        setItems((data as Record<string, unknown>[]).map(r => ({
-          id:                 r.id as string,
-          eventType:          r.event_type as string,
-          title:              r.title as string,
-          body:               (r.body as string | null) ?? null,
-          entityType:         r.entity_type as string,
-          entityId:           r.entity_id as string,
-          actorProfileId:     (r.actor_profile_id as string | null) ?? null,
-          recipientProfileId: (r.recipient_profile_id as string | null) ?? null,
-          recipientRole:      (r.recipient_role as string | null) ?? null,
-          isRead:             r.is_read as boolean,
-          createdAt:          r.created_at as string,
-        })));
+        setItems((data as Record<string, unknown>[]).map(mapRow));
       }
     }
     loadOnOpen();
-  }, [open]);
+  }, [open, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function markRead(item: NotificationItem) {
     const supabase = createClient();

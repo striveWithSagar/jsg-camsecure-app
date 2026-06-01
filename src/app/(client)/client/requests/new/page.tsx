@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useClientProfile } from "@/components/providers/ClientProfileProvider";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Camera, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, Upload, X, Loader2, AlertTriangle } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateTimeInput } from "@/components/ui/date-time-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -15,7 +16,6 @@ import { SERVICE_TYPES, URGENCY_LEVELS } from "@/lib/constants";
 import { cn, fmtReqNumber } from "@/lib/utils";
 import Link from "next/link";
 
-// UI label → DB enum value
 const SERVICE_TYPE_MAP: Record<string, string> = {
   "New Installation":  "new_installation",
   "Maintenance":       "maintenance",
@@ -29,6 +29,15 @@ const SERVICE_TYPE_MAP: Record<string, string> = {
   "Other":             "other",
 };
 
+const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic"];
+const MAX_BYTES    = 10 * 1024 * 1024;
+
+function sanitizeName(name: string): string {
+  const ext  = name.includes(".") ? "." + name.split(".").pop()!.toLowerCase() : "";
+  const base = name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9-]/g, "_");
+  return (base || "photo") + ext;
+}
+
 type Errors = Partial<Record<string, string>>;
 
 export default function ClientNewRequestPage() {
@@ -41,19 +50,54 @@ export default function ClientNewRequestPage() {
   const [urgency,       setUrgency]       = useState("");
   const [errors,        setErrors]        = useState<Errors>({});
   const [loading,       setLoading]       = useState(false);
+  const [loadingMsg,    setLoadingMsg]    = useState("Submitting…");
   const [submitError,   setSubmitError]   = useState<string | null>(null);
+  const [photoWarning,  setPhotoWarning]  = useState<string | null>(null);
+
+  // Staged files — selected before submit, uploaded after request is created
+  const [stagedFiles,   setStagedFiles]   = useState<File[]>([]);
+  const [fileError,     setFileError]     = useState<string | null>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
 
   function clearError(key: string) {
     setErrors(prev => ({ ...prev, [key]: undefined }));
   }
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (selected.length === 0) return;
+
+    setFileError(null);
+    const valid: File[]   = [];
+    const invalid: string[] = [];
+
+    for (const file of selected) {
+      if (!ALLOWED_MIME.includes(file.type)) {
+        invalid.push(`${file.name}: unsupported type`);
+      } else if (file.size > MAX_BYTES) {
+        invalid.push(`${file.name}: exceeds 10 MB`);
+      } else {
+        valid.push(file);
+      }
+    }
+
+    if (invalid.length > 0) setFileError(invalid.join(", "));
+    setStagedFiles(prev => [...prev, ...valid]);
+  }
+
+  function removeFile(index: number) {
+    setStagedFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // Capture form data synchronously before any awaits
-    const formData    = new FormData(e.currentTarget);
-    const phone       = (formData.get("phone")       as string).trim();
-    const email       = (formData.get("email")       as string).trim();
-    const desc        = (formData.get("description") as string).trim();
+    // Capture synchronously before any awaits
+    const formData = new FormData(e.currentTarget);
+    const phone    = (formData.get("phone")       as string ?? "").trim();
+    const email    = (formData.get("email")       as string ?? "").trim();
+    const address  = (formData.get("address")     as string ?? "").trim();
+    const desc     = (formData.get("description") as string ?? "").trim();
 
     const next: Errors = {};
     if (!phone && !email) next.phone       = "Provide a phone number or email.";
@@ -67,7 +111,9 @@ export default function ClientNewRequestPage() {
     }
 
     setLoading(true);
+    setLoadingMsg("Submitting…");
     setSubmitError(null);
+    setPhotoWarning(null);
 
     const supabase = createClient();
 
@@ -78,6 +124,7 @@ export default function ClientNewRequestPage() {
       return;
     }
 
+    // Step 1 — create the service request
     const { data, error: insertError } = await supabase
       .from("service_requests")
       .insert({
@@ -92,6 +139,7 @@ export default function ClientNewRequestPage() {
         status:                  "new",
         description:             desc,
         notes:                   "",
+        site_address:            address,
       })
       .select("id, request_number")
       .single();
@@ -103,23 +151,78 @@ export default function ClientNewRequestPage() {
     }
 
     const row = data as { id: string; request_number: number | null };
-    setRequestId(row.id);
-    setRequestNumber(row.request_number ?? null);
-    setSubmitted(true);
-    setLoading(false);
 
-    // Notify admins of new request (best-effort — does not block success)
-    const reqLabel = `REQ-${String(row.request_number ?? 0).padStart(4, "0")}`;
+    // Notify admins of new request (best-effort)
+    // serviceType holds the display label e.g. "Camera Outage" — use it directly
     void supabase.from("notifications").insert({
       organization_id:  profile.orgId,
       actor_profile_id: user.id,
       recipient_role:   "admin",
       event_type:       "client_request_created",
-      title:            `New request from ${profile.companyName}`,
-      body:             `${reqLabel} · ${SERVICE_TYPE_MAP[serviceType] ?? serviceType} · ${urgency}`,
+      title:            "New service request submitted",
+      body:             `${profile.companyName} submitted a request for ${serviceType} at ${address || "—"}.`,
       entity_type:      "service_request",
       entity_id:        row.id,
     });
+
+    // No technician notification here — technicians are notified only when
+    // a job is actually assigned to them via convert_request_to_job RPC.
+
+    // Step 2 — upload staged photos (if any)
+    let photosFailed = 0;
+    if (stagedFiles.length > 0) {
+      for (let i = 0; i < stagedFiles.length; i++) {
+        setLoadingMsg(`Uploading photos (${i + 1} of ${stagedFiles.length})…`);
+        const file        = stagedFiles[i];
+        const storagePath = `org/${profile.orgId}/requests/${row.id}/${Date.now()}-${sanitizeName(file.name)}`;
+
+        const { error: upErr } = await supabase.storage
+          .from("camsecure-media")
+          .upload(storagePath, file, { contentType: file.type });
+
+        if (upErr) { photosFailed++; continue; }
+
+        const { error: dbErr } = await supabase.from("service_request_photos").insert({
+          organization_id:        profile.orgId,
+          service_request_id:     row.id,
+          uploaded_by_profile_id: user.id,
+          storage_bucket:         "camsecure-media",
+          storage_path:           storagePath,
+          file_name:              file.name,
+          mime_type:              file.type,
+          file_size:              file.size,
+        });
+
+        if (dbErr) {
+          photosFailed++;
+          void supabase.storage.from("camsecure-media").remove([storagePath]);
+        }
+      }
+
+      // Single notification for all photos if at least one succeeded
+      if (photosFailed < stagedFiles.length) {
+        void supabase.from("notifications").insert({
+          organization_id:  profile.orgId,
+          actor_profile_id: user.id,
+          recipient_role:   "admin",
+          event_type:       "client_request_photo_uploaded",
+          title:            "New photo attached to request",
+          entity_type:      "service_request",
+          entity_id:        row.id,
+        });
+      }
+
+      if (photosFailed > 0) {
+        setPhotoWarning(
+          `${photosFailed} photo${photosFailed > 1 ? "s" : ""} failed to upload. You can add them from the request page.`
+        );
+      }
+    }
+
+    setRequestId(row.id);
+    setRequestNumber(row.request_number ?? null);
+    setSubmitted(true);
+    setLoading(false);
   }
 
   if (submitted) {
@@ -136,6 +239,12 @@ export default function ClientNewRequestPage() {
             has been received. Our team will be in touch within 1 business day to confirm scheduling.
           </p>
         </div>
+        {photoWarning && (
+          <div className="flex items-center gap-2 rounded-md border border-c-warning/30 bg-c-warning/10 px-4 py-2.5 text-xs text-c-warning max-w-sm">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {photoWarning}
+          </div>
+        )}
         <div className="flex flex-wrap gap-3 mt-2 justify-center">
           {requestId && (
             <Link href={`/client/requests/${requestId}`} className={cn(buttonVariants({ size: "sm" }), "h-9 gap-1.5")}>
@@ -150,6 +259,9 @@ export default function ClientNewRequestPage() {
             setUrgency("");
             setErrors({});
             setSubmitError(null);
+            setPhotoWarning(null);
+            setStagedFiles([]);
+            setFileError(null);
           }}>
             Submit another
           </Button>
@@ -278,22 +390,68 @@ export default function ClientNewRequestPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="preferred" className="text-xs">Preferred date / time</Label>
-            <Input id="preferred" name="preferred" type="datetime-local" className="h-10 text-sm" />
+            <DateTimeInput id="preferred" name="preferred" type="datetime-local" className="h-10 text-sm" />
           </div>
         </section>
 
         <div className="h-px bg-border" />
 
-        {/* Photo upload placeholder */}
-        <section className="space-y-1.5">
+        {/* Photo attachment */}
+        <section className="space-y-3">
           <Label className="text-xs">Attach photos (optional)</Label>
-          <div className="flex flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-border bg-muted/15 px-6 py-10 text-center">
-            <Camera className="h-7 w-7 text-muted-foreground/50" />
-            <div>
-              <p className="text-sm text-muted-foreground font-medium">Photo upload</p>
-              <p className="text-xs text-muted-foreground/60 mt-0.5">Available after account setup</p>
-            </div>
-          </div>
+
+          {/* Hidden file input */}
+          <input
+            ref={photoRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+
+          {/* Staged file list */}
+          {stagedFiles.length > 0 && (
+            <ul className="space-y-1.5">
+              {stagedFiles.map((file, i) => (
+                <li
+                  key={i}
+                  className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-1.5 text-xs"
+                >
+                  <Camera className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1 truncate text-foreground">{file.name}</span>
+                  <span className="text-muted-foreground shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    disabled={loading}
+                    className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {fileError && <p className="text-xs text-destructive">{fileError}</p>}
+
+          {/* Trigger button */}
+          <button
+            type="button"
+            onClick={() => { setFileError(null); photoRef.current?.click(); }}
+            disabled={loading}
+            className={cn(
+              "flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border",
+              "bg-muted/15 px-6 py-6 text-xs text-muted-foreground transition-colors",
+              "hover:border-border/60 hover:bg-muted/25 hover:text-foreground",
+              "disabled:pointer-events-none disabled:opacity-50"
+            )}
+          >
+            <Upload className="h-4 w-4" />
+            {stagedFiles.length > 0 ? "Add more photos" : "Choose photos"}
+            <span className="text-muted-foreground/60">· JPEG, PNG, WebP, HEIC · max 10 MB</span>
+          </button>
         </section>
 
         {submitError && (
@@ -303,7 +461,9 @@ export default function ClientNewRequestPage() {
         )}
 
         <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={loading}>
-          {loading ? "Submitting…" : "Submit Request"}
+          {loading
+            ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />{loadingMsg}</>
+            : "Submit Request"}
         </Button>
 
       </form>
