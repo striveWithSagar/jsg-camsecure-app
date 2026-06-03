@@ -1,10 +1,7 @@
 import { getJobBoardData } from "@/lib/data/jobs";
 import { TopBar } from "@/components/layout/TopBar";
 import { JobBoard } from "@/components/jobs/JobBoard";
-
-function todayUTC(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { businessDateKey } from "@/lib/utils";
 
 function makeBoardSubtitle(bucket: Awaited<ReturnType<typeof getJobBoardData>>): string {
   if (bucket.isWeekView) {
@@ -26,7 +23,7 @@ export default async function JobBoardPage({
   searchParams: Promise<{ date?: string }>;
 }) {
   const { date } = await searchParams;
-  const dateParam = date ?? todayUTC();
+  const dateParam = date ?? businessDateKey();
 
   const bucket = await getJobBoardData(dateParam);
 

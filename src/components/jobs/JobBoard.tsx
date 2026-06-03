@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { JobBucket, JobRow } from "@/lib/data/jobs";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
-import { fmtJobNumber } from "@/lib/utils";
+import { fmtJobNumber, businessDateKey, BUSINESS_TZ } from "@/lib/utils";
 import { AlertTriangle, Calendar, ChevronDown, ChevronRight, Clock, Download, User } from "lucide-react";
 import { DateTimeInput } from "@/components/ui/date-time-input";
 import Link from "next/link";
@@ -25,14 +25,10 @@ const PRIORITY_ORDER = ["emergency", "high", "medium", "low"];
 
 // ── Client-side date helpers ──────────────────────────────────────────────────
 
-function localDateStr(offsetDays = 0): string {
+function businessDateOffset(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, "0"),
-    String(d.getDate()).padStart(2, "0"),
-  ].join("-");
+  return businessDateKey(d);
 }
 
 function daysBetween(isoA: string, isoB: string): number {
@@ -44,6 +40,7 @@ function daysBetween(isoA: string, isoB: string): number {
 function fmtDayHeading(dateStr: string): string {
   return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric",
+    timeZone: BUSINESS_TZ,
   });
 }
 
@@ -265,7 +262,7 @@ function ListView({ jobs }: { jobs: JobRow[] }) {
 }
 
 function WeekView({ bucket }: { bucket: JobBucket }) {
-  const todayStr = localDateStr(0);
+  const todayStr = businessDateOffset(0);
   return (
     <div className="space-y-5">
       <OverdueSection jobs={bucket.overdue} todayStr={todayStr} />
@@ -303,8 +300,8 @@ export function JobBoard({ bucket, dateParam }: { bucket: JobBucket; dateParam: 
   const router = useRouter();
   const [view, setView] = useState<"kanban" | "list">("kanban");
 
-  const todayStr    = localDateStr(0);
-  const tomorrowStr = localDateStr(1);
+  const todayStr    = businessDateOffset(0);
+  const tomorrowStr = businessDateOffset(1);
 
   const activeTab =
     dateParam === "week"        ? "week"     :

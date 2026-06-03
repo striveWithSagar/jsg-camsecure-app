@@ -5,6 +5,29 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Business timezone used for all date-label logic (Today/Tomorrow/This Week).
+ * Using a constant rather than a DB setting keeps it simple; update here if the
+ * company relocates.
+ */
+export const BUSINESS_TZ = "America/Winnipeg";
+
+/**
+ * Returns a YYYY-MM-DD date string in the business timezone.
+ * Use this everywhere a "today" key is needed — never use
+ * `new Date().toISOString().slice(0, 10)` which gives a UTC date.
+ *
+ * en-CA locale formats natively as YYYY-MM-DD.
+ */
+export function businessDateKey(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: BUSINESS_TZ,
+    year:  "numeric",
+    month: "2-digit",
+    day:   "2-digit",
+  }).format(date);
+}
+
 export function fmtJobNumber(n: number | null | undefined): string {
   return n != null ? `JOB-${String(n).padStart(4, "0")}` : "—";
 }

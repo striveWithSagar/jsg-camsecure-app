@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { businessDateKey, BUSINESS_TZ } from "@/lib/utils";
 
 // ── Shared display types ──────────────────────────────────────────────────────
 
@@ -162,21 +163,26 @@ function mapToJobRow(row: RawJobRow): JobRow {
 // ── Bucketing helpers ─────────────────────────────────────────────────────────
 
 function getWeekStartStr(): string {
-  const now = new Date();
-  const dow = now.getUTCDay(); // 0 = Sun
-  const toMon = dow === 0 ? -6 : 1 - dow;
-  const d = new Date(now);
-  d.setUTCDate(d.getUTCDate() + toMon);
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString().slice(0, 10);
+  // Use business timezone so Monday aligns with the local business week,
+  // not the UTC week (which could be 5–6 hours ahead of Winnipeg).
+  const todayKey = businessDateKey();                  // YYYY-MM-DD in business TZ
+  const d        = new Date(todayKey + "T12:00:00");   // noon avoids DST edge cases
+  const dow      = d.getDay();                         // 0 = Sun (local)
+  const toMon    = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + toMon);
+  return businessDateKey(d);                           // Monday in business TZ
 }
 
 function buildWeekDays(weekStartStr: string): { label: string; date: string; jobs: JobRow[] }[] {
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStartStr + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() + i);
-    const date  = d.toISOString().slice(0, 10);
-    const label = d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    // Use noon so DST transitions don't flip the date
+    const d    = new Date(weekStartStr + "T12:00:00");
+    d.setDate(d.getDate() + i);
+    const date  = businessDateKey(d);
+    const label = d.toLocaleDateString("en-US", {
+      weekday: "long", month: "short", day: "numeric",
+      timeZone: BUSINESS_TZ,
+    });
     return { label, date, jobs: [] };
   });
 }
