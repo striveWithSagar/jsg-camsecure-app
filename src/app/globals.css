@@ -99,6 +99,48 @@
   }
 }
 
+/* ── Client Portal — JSG CamSecure Brand Tokens ─────────────────────────── */
+/*
+ * All overrides are scoped to .cp-portal so admin/technician portals are
+ * completely unaffected. Orange #F27622 → oklch(0.68 0.195 45).
+ * Cyan  #5BC8F5 → oklch(0.80 0.130 207).
+ */
+.cp-portal {
+  /* Override primary to JSG orange */
+  --primary:            oklch(0.68 0.195 45);
+  --primary-foreground: oklch(0.10 0.018 45);
+  --ring:               oklch(0.68 0.195 45);
+
+  /* JSG brand palette */
+  --cp-orange:          oklch(0.68 0.195 45);
+  --cp-orange-dim:      oklch(0.68 0.195 45 / 0.15);
+  --cp-orange-border:   oklch(0.68 0.195 45 / 0.35);
+  --cp-orange-text:     oklch(0.80 0.170 45);
+  --cp-cyan:            oklch(0.80 0.130 207);
+  --cp-cyan-dim:        oklch(0.80 0.130 207 / 0.15);
+  --cp-cyan-border:     oklch(0.80 0.130 207 / 0.30);
+  --cp-cyan-text:       oklch(0.86 0.110 207);
+
+  /* Switch body font to Inter for the client portal */
+  font-family: var(--font-inter, sans-serif);
+}
+
+/* Rajdhani headings — applied via .cp-heading utility class */
+.cp-heading {
+  font-family: var(--font-rajdhani, sans-serif);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Orange-accent card — top border stripe */
+.cp-card-orange {
+  border-top: 2px solid var(--cp-orange);
+}
+.cp-card-cyan {
+  border-top: 2px solid var(--cp-cyan);
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { createClient } from "@/lib/supabase/client";
 import { useClientProfile } from "@/components/providers/ClientProfileProvider";
@@ -19,27 +20,44 @@ export function ClientHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm"
+      style={{ borderBottom: "1px solid var(--cp-orange-border)" }}
+    >
+      {/* Orange accent bar at very top */}
+      <div className="h-0.5 w-full" style={{ background: "linear-gradient(90deg, var(--cp-orange) 0%, var(--cp-cyan) 100%)" }} />
+
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center gap-4">
-        <Link href="/client" className="flex items-center gap-2.5 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 border border-primary/25">
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <div className="leading-tight">
-            <p className="text-xs font-semibold text-foreground leading-none">CamSecure</p>
-            <p className="text-[10px] text-c-violet leading-none mt-0.5">Client Portal</p>
-          </div>
+        {/* Logo */}
+        <Link href="/client" className="shrink-0 flex items-center">
+          <Image
+            src="/brand/jsg-camsecure-logo.png"
+            alt="JSG CamSecure"
+            width={110}
+            height={36}
+            className="object-contain h-8 w-auto"
+            priority
+          />
         </Link>
 
+        {/* Nav */}
         <ClientTopNav />
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* User area */}
+        <div className="ml-auto flex items-center gap-2.5">
           <div className="hidden sm:block text-right">
-            <p className="text-xs font-medium text-foreground leading-none">{profile.companyName}</p>
-            <p className="text-[10px] text-muted-foreground leading-none mt-0.5">{profile.name}</p>
+            <p className="text-xs font-semibold text-foreground leading-none">{profile.companyName}</p>
+            <p className="text-[10px] leading-none mt-0.5" style={{ color: "var(--cp-cyan-text)" }}>
+              {profile.name}
+            </p>
           </div>
           <Avatar className="h-7 w-7">
-            <AvatarFallback className="bg-c-violet/20 text-c-violet text-[10px] font-semibold">
+            <AvatarFallback
+              className="text-[10px] font-bold"
+              style={{
+                background: "var(--cp-orange-dim)",
+                color: "var(--cp-orange-text)",
+              }}
+            >
               {profile.initials}
             </AvatarFallback>
           </Avatar>
