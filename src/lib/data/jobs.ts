@@ -206,14 +206,19 @@ function bucketDay(rows: JobRow[], dateParam: string): JobBucket {
     const terminal = job.status === "completed" || job.status === "cancelled";
 
     if (terminal) {
-      // Group by completed_at date (D5 requirement); fall back to updated_at for cancelled
-      const doneDay = job.completedAt?.slice(0, 10) ?? job.updatedAt.slice(0, 10);
+      // Group by completed_at date in business timezone (D5 requirement);
+      // fall back to updated_at for cancelled jobs
+      const doneDay = job.completedAt
+        ? businessDateKey(new Date(job.completedAt))
+        : businessDateKey(new Date(job.updatedAt));
       if (doneDay === dateParam) done.push(job);
     } else {
       if (!job.scheduledAt) {
         unscheduled.push(job);
       } else {
-        const scheduledDay = job.scheduledAt.slice(0, 10);
+        // Convert UTC ISO timestamp to business-timezone date key so late-evening
+        // jobs (e.g. 11 PM CDT = next day UTC) appear under the correct local date
+        const scheduledDay = businessDateKey(new Date(job.scheduledAt));
         if (scheduledDay === dateParam)    active.push(job);
         else if (scheduledDay < dateParam) overdue.push(job);
         // Jobs scheduled after dateParam are not shown for this date view
@@ -246,7 +251,9 @@ function bucketWeek(rows: JobRow[]): JobBucket {
     if (job.status === "completed" || job.status === "cancelled") continue;
     if (!job.scheduledAt) { unscheduled.push(job); continue; }
 
-    const day = job.scheduledAt.slice(0, 10);
+    // Convert UTC ISO timestamp to business-timezone date so late-evening jobs
+    // group under the correct Winnipeg day, not the next UTC day
+    const day = businessDateKey(new Date(job.scheduledAt));
     if (day < weekStartStr) {
       overdue.push(job);
     } else if (dayMap.has(day)) {
