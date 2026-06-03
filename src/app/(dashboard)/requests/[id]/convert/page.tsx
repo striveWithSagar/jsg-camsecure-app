@@ -83,6 +83,17 @@ export default async function ConvertRequestPage({
     );
   }
 
+  // Resolve site address: prefer the request's own site_address, then fall back
+  // to the linked client account's address. Old requests created before the
+  // site_address column existed (Phase 10S-A) will have an empty string here.
+  const linkedClient     = raw.client_id ? clients.find(c => c.id === raw.client_id) : undefined;
+  const requestAddress   = (raw.site_address ?? "").trim();
+  const clientAddress    = (linkedClient?.address ?? "").trim();
+  const resolvedAddress  = requestAddress || clientAddress;
+  const addressSource: "request" | "client" | "none" =
+    requestAddress ? "request" :
+    clientAddress  ? "client"  : "none";
+
   const request: ConvertRequestData = {
     id:            raw.id,
     client:        raw.client_name,
@@ -91,6 +102,10 @@ export default async function ConvertRequestPage({
     urgency:       raw.urgency,
     description:   raw.description,
     requestNumber: raw.request_number ?? null,
+    clientId:      raw.client_id ?? null,
+    clientName:    linkedClient?.name ?? null,
+    siteAddress:   resolvedAddress,
+    addressSource,
   };
 
   return (

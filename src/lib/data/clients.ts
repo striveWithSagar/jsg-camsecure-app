@@ -31,8 +31,9 @@ function formatDueDate(iso: string | null): string {
 }
 
 export type ClientOption = {
-  id:   string;
-  name: string;
+  id:      string;
+  name:    string;
+  address: string; // clients.address — used as site address fallback on convert page
 };
 
 export type ClientRow = {
@@ -49,7 +50,7 @@ export async function getClients(): Promise<ClientOption[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clients")
-    .select("id, name")
+    .select("id, name, address")
     .eq("status", "active")
     .order("name");
 

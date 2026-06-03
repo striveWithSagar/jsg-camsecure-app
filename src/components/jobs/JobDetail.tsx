@@ -425,7 +425,7 @@ export function JobDetail({
               )}
               <Separator className="bg-border" />
               <div className="flex justify-between gap-2 pt-0.5">
-                <span className="text-muted-foreground">Age</span>
+                <span className="text-muted-foreground">Time Open</span>
                 <span className={`font-semibold ${ageInfo.isComplete ? "text-c-success" : "text-foreground"}`}>
                   {ageInfo.label}
                 </span>

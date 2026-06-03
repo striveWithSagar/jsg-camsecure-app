@@ -176,3 +176,50 @@
 .bg-c-amber-solid     { background-color: oklch(0.78 0.165 90); }
 .bg-c-violet-solid    { background-color: oklch(0.62 0.200 260); }
 .bg-c-purple-solid    { background-color: oklch(0.65 0.170 300); }
+
+/* ── Date / time input — dark theme ─────────────────────────────────────────
+ * DateTimeInput component (src/components/ui/date-time-input.tsx) renders
+ * the visible Calendar icon and calls showPicker() on click.
+ * This CSS only handles:
+ *   - color-scheme so the picker POPUP is dark
+ *   - hiding the native indicator (opacity:0 + pointer-events:none) so only
+ *     our button icon is visible and clickable
+ *   - removing the inner spin button (avoids the secondary dark control)
+ *   - time/month still use filter:invert (no component wrapping those types)
+ * ───────────────────────────────────────────────────────────────────────── */
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"] {
+  color-scheme: dark !important;
+}
+
+/*
+ * Hide native indicator on date/datetime-local.
+ * pointer-events:none lets clicks pass to our Calendar button above it.
+ * opacity:0 removes the dark native icon visually.
+ */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Remove Chromium's inner spin button (secondary dark control on datetime-local) */
+input[type="date"]::-webkit-inner-spin-button,
+input[type="datetime-local"]::-webkit-inner-spin-button {
+  display: none !important;
+}
+
+/* time + month: no component wrapper, keep filter:invert for visibility */
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.8) !important;
+  opacity: 0.85 !important;
+  cursor: pointer !important;
+}
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1 !important;
+}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateTimeInput } from "@/components/ui/date-time-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -50,6 +51,7 @@ export function NewRequestForm() {
     const clientName   = ((data.get("client-name")   as string) ?? "").trim();
     const businessName = ((data.get("business-name") as string) ?? "").trim();
     const phone        = ((data.get("phone")          as string) ?? "").trim();
+    const address      = ((data.get("address")        as string) ?? "").trim();
     const desc         = ((data.get("description")    as string) ?? "").trim();
     const notes        = ((data.get("notes")          as string) ?? "").trim();
 
@@ -100,6 +102,7 @@ export function NewRequestForm() {
         urgency,
         description:             desc,
         notes,
+        site_address:            address,
       })
       .select("id, request_number")
       .single();
@@ -245,7 +248,7 @@ export function NewRequestForm() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="preferred-datetime" className="text-xs">Preferred Date & Time</Label>
-          <Input id="preferred-datetime" name="preferred-datetime" type="datetime-local" className="h-9 text-sm" />
+          <DateTimeInput id="preferred-datetime" name="preferred-datetime" type="datetime-local" className="h-9 text-sm" />
         </div>
       </section>
 

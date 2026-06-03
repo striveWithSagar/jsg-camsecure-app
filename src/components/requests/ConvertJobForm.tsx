@@ -7,6 +7,7 @@ import type { TechnicianOption } from "@/lib/data/technicians";
 import { PRIORITY_LABELS } from "@/lib/constants";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateTimeInput } from "@/components/ui/date-time-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
 import { cn, fmtJobNumber, fmtReqNumber } from "@/lib/utils";
-import { ArrowLeft, Briefcase, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Briefcase, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import Link from "next/link";
 
 export type ConvertRequestData = {
@@ -25,6 +26,10 @@ export type ConvertRequestData = {
   urgency:       string;
   description:   string;
   requestNumber: number | null;
+  clientId:      string | null; // pre-set when request has client_id
+  clientName:    string | null; // resolved name for read-only display
+  siteAddress:   string;        // resolved address — from request, client fallback, or ""
+  addressSource: "request" | "client" | "none"; // which source provided the address
 };
 
 type Errors = Partial<Record<string, string>>;
@@ -40,7 +45,7 @@ export function ConvertJobForm({
   clients:     ClientOption[];
   technicians: TechnicianOption[];
 }) {
-  const [clientId,      setClientId]      = useState("");
+  const [clientId,      setClientId]      = useState(request?.clientId ?? "");
   const [technicianId,  setTechnicianId]  = useState("");
   const [priority,      setPriority]      = useState(request?.urgency ?? "medium");
   const [errors,        setErrors]        = useState<Errors>({});
@@ -74,7 +79,8 @@ export function ConvertJobForm({
     const jobNotes = ((data.get("job-notes") as string) ?? "").trim();
 
     const next: Errors = {};
-    if (!clientId)     next.clientId     = "Please select a client account.";
+    // Only validate client selection when request has no pre-set client_id
+    if (!request.clientId && !clientId) next.clientId = "Please select a client account.";
     if (!technicianId) next.technicianId = "Please assign a technician.";
     if (!schedule)     next.schedule     = "Scheduled date and time is required.";
     if (!address)      next.address      = "Site address is required.";
@@ -176,25 +182,35 @@ export function ConvertJobForm({
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Assignment</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            {/* Client selector — required because jobs.client_id NOT NULL */}
+            {/* Client — read-only when request has client_id, dropdown otherwise */}
             <div className="space-y-1.5">
-              <Label className="text-xs">Client Account <span className="text-destructive">*</span></Label>
-              <Select
-                value={clientId}
-                onValueChange={v => { setClientId(v ?? ""); clearError("clientId"); }}
-              >
-                <SelectTrigger className={cn("h-9 text-sm", errors.clientId && "border-destructive")}>
-                  <span className="truncate">
-                    {clients.find(c => c.id === clientId)?.name ?? "Select client"}
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.clientId && <p className="text-xs text-destructive">{errors.clientId}</p>}
+              <Label className="text-xs">
+                Client Account {!request.clientId && <span className="text-destructive">*</span>}
+              </Label>
+              {request.clientId ? (
+                <div className="flex h-9 items-center rounded-md border border-border bg-muted/30 px-3 text-sm text-foreground">
+                  {request.clientName ?? clients.find(c => c.id === request.clientId)?.name ?? "—"}
+                </div>
+              ) : (
+                <>
+                  <Select
+                    value={clientId}
+                    onValueChange={v => { setClientId(v ?? ""); clearError("clientId"); }}
+                  >
+                    <SelectTrigger className={cn("h-9 text-sm", errors.clientId && "border-destructive")}>
+                      <span className="truncate">
+                        {clients.find(c => c.id === clientId)?.name ?? "Select client"}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.clientId && <p className="text-xs text-destructive">{errors.clientId}</p>}
+                </>
+              )}
             </div>
 
             {/* Technician selector — UUID value, name label */}
@@ -246,7 +262,7 @@ export function ConvertJobForm({
               <Label htmlFor="schedule" className="text-xs">
                 Scheduled Date & Time <span className="text-destructive">*</span>
               </Label>
-              <Input
+              <DateTimeInput
                 id="schedule" name="schedule" type="datetime-local"
                 className={cn("h-9 text-sm", errors.schedule && "border-destructive")}
                 onChange={() => clearError("schedule")}
@@ -255,19 +271,40 @@ export function ConvertJobForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="deadline" className="text-xs">Deadline (optional)</Label>
-              <Input id="deadline" name="deadline" type="datetime-local" className="h-9 text-sm" />
+              <DateTimeInput id="deadline" name="deadline" type="datetime-local" className="h-9 text-sm" />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="address" className="text-xs">
               Site Address <span className="text-destructive">*</span>
             </Label>
+            {/* Warning banner when no address source is available */}
+            {request.addressSource === "none" && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/8 px-3 py-2 text-xs text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                No site address found on this request or client account. Please enter the job site address.
+              </div>
+            )}
             <Input
               id="address" name="address"
               placeholder="Full address including city"
+              defaultValue={request.siteAddress}
               className={cn("h-9 text-sm", errors.address && "border-destructive")}
               onChange={() => clearError("address")}
             />
+            {/* Source hint — only show when a value is pre-filled */}
+            {request.addressSource === "request" && !errors.address && (
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Info className="h-3 w-3 shrink-0" />
+                Pre-filled from client request. Edit only if the job site is different.
+              </p>
+            )}
+            {request.addressSource === "client" && !errors.address && (
+              <p className="flex items-center gap-1 text-[11px] text-amber-400/80">
+                <Info className="h-3 w-3 shrink-0" />
+                No request address was found. Using client account address as fallback.
+              </p>
+            )}
             {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
           </div>
         </section>

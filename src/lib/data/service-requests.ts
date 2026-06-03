@@ -38,6 +38,7 @@ export type ServiceRequest = {
   status: RequestStatus;
   description: string;
   notes: string;
+  site_address: string;
   converted_to_job_id: string | null;
   request_number: number | null;
   created_at: string;
