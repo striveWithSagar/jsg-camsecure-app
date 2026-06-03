@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#0d1b2a"/>
+  <!-- Orange accent bar at top -->
+  <rect x="0" y="0" width="512" height="12" rx="6" fill="#F27622"/>
+  <!-- Camera/shield icon area -->
+  <circle cx="256" cy="180" r="72" fill="none" stroke="#F27622" stroke-width="10"/>
+  <circle cx="256" cy="180" r="38" fill="#F27622"/>
+  <!-- Lens ring -->
+  <circle cx="256" cy="180" r="18" fill="#0d1b2a"/>
+  <!-- JSG text -->
+  <text x="256" y="370" font-family="Arial Black, sans-serif" font-size="130" font-weight="900"
+        text-anchor="middle" fill="#F27622" letter-spacing="-4">JSG</text>
+  <!-- CAMSECURE subtext -->
+  <text x="256" y="430" font-family="Arial, sans-serif" font-size="44" font-weight="700"
+        text-anchor="middle" fill="#5BC8F5" letter-spacing="6">CAMSECURE</text>
+</svg>

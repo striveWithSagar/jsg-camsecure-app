@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Geist_Mono, Rajdhani, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -27,8 +27,30 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "CamSecure — Field Operations",
-  description: "Field service operations dashboard for camera and security installation companies",
+  title:       "JSG CamSecure",
+  description: "Field service operations — camera and security installation",
+  manifest:    "/manifest.webmanifest",
+  appleWebApp: {
+    capable:         true,
+    title:           "JSG CamSecure",
+    statusBarStyle:  "black-translucent",
+  },
+  formatDetection: { telephone: false },
+  icons: {
+    icon:  [
+      { url: "/favicon.ico",        sizes: "any" },
+      { url: "/brand/jsg-camsecure-logo.png", type: "image/png" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor:          "#0d1b2a",
+  width:               "device-width",
+  initialScale:        1,
+  maximumScale:        1,
+  userScalable:        false,
 };
 
 export default function RootLayout({
