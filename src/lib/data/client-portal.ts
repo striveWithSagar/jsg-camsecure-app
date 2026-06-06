@@ -128,6 +128,7 @@ export type ClientJobDetail = {
   address:        string;
   scheduledAt:    string | null;
   completedAt:    string | null;
+  deadlineAt:     string | null;
   createdAt:      string;
   updatedAt:      string;
   linkedRequest: {
@@ -155,6 +156,7 @@ type JobDetailRawRow = {
   address:          string | null;
   scheduled_at:     string | null;
   completed_at:     string | null;
+  deadline_at:      string | null;
   created_at:       string;
   updated_at:       string;
   request_id:       string | null;
@@ -170,7 +172,7 @@ export async function getClientJobById(id: string): Promise<ClientJobDetail | nu
     .from("jobs")
     .select(
       "id, organization_id, job_number, service_type, status, priority, site_name, address, " +
-      "scheduled_at, completed_at, created_at, updated_at, request_id, " +
+      "scheduled_at, completed_at, deadline_at, created_at, updated_at, request_id, " +
       "service_requests!request_id(request_number, created_at, status)"
     )
     .eq("id", id)
@@ -193,6 +195,7 @@ export async function getClientJobById(id: string): Promise<ClientJobDetail | nu
     address:        row.address ?? "—",
     scheduledAt:    row.scheduled_at ?? null,
     completedAt:    row.completed_at ?? null,
+    deadlineAt:     row.deadline_at ?? null,
     createdAt:      row.created_at,
     updatedAt:      row.updated_at,
     linkedRequest: (row.request_id && sr) ? {
@@ -266,6 +269,7 @@ export type ClientRequestDetail = {
   urgency:        string;
   status:         string;
   description:    string;
+  preferredAt:    string | null;
   createdAt:      string;
   updatedAt:      string;
   isTerminal:     boolean;
@@ -294,6 +298,7 @@ type RequestDetailRawRow = {
   urgency:             string;
   status:              string;
   description:         string;
+  preferred_at:        string | null;
   created_at:          string;
   updated_at:          string;
   converted_to_job_id: string | null;
@@ -308,7 +313,7 @@ export async function getClientRequestById(id: string): Promise<ClientRequestDet
   const { data, error } = await supabase
     .from("service_requests")
     .select(
-      "id, organization_id, request_number, service_type, urgency, status, description, " +
+      "id, organization_id, request_number, service_type, urgency, status, description, preferred_at, " +
       "created_at, updated_at, converted_to_job_id, " +
       "jobs!converted_to_job_id(job_number, status, site_name, scheduled_at, completed_at)"
     )
@@ -330,6 +335,7 @@ export async function getClientRequestById(id: string): Promise<ClientRequestDet
     urgency:        row.urgency,
     status:         row.status,
     description:    row.description,
+    preferredAt:    row.preferred_at ?? null,
     createdAt:      row.created_at,
     updatedAt:      row.updated_at,
     isTerminal:     row.status === "converted" || row.status === "cancelled",

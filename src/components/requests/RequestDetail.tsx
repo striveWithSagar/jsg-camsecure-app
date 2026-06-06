@@ -11,7 +11,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { REQUEST_STATUS_LABELS } from "@/lib/constants";
 import { cn, fmtReqNumber } from "@/lib/utils";
-import { Phone, Clock, Save, Briefcase, CheckCircle2 } from "lucide-react";
+import { Phone, Clock, Save, Briefcase, CheckCircle2, Calendar } from "lucide-react";
+import { fmtDatetime } from "@/lib/utils";
 import Link from "next/link";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -41,6 +42,7 @@ export type RequestDetailData = {
   notes:          string;
   created:        string;
   requestNumber:  number | null;
+  preferredAt:    string | null;
 };
 
 export function RequestDetail({
@@ -150,6 +152,14 @@ export function RequestDetail({
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Urgency</p>
                 <p className="text-sm font-medium text-foreground capitalize">{request.urgency}</p>
               </div>
+              {request.preferredAt && (
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" /> Preferred Date & Time
+                  </p>
+                  <p className="text-sm font-medium text-foreground">{fmtDatetime(request.preferredAt)}</p>
+                </div>
+              )}
             </div>
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">Description</p>

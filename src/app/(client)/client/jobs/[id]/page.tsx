@@ -68,6 +68,7 @@ export default async function ClientJobDetailPage({
   if (job.linkedRequest) timelineItems.push({ label: "Request Created", time: fmtDatetime(job.linkedRequest.createdAt) });
   timelineItems.push({ label: "Job Created", time: fmtDatetime(job.createdAt) });
   if (job.scheduledAt) timelineItems.push({ label: "Scheduled",  time: fmtDatetime(job.scheduledAt) });
+  if (job.deadlineAt)  timelineItems.push({ label: "Deadline",   time: fmtDatetime(job.deadlineAt)  });
   if (job.completedAt) timelineItems.push({ label: "Completed",  time: fmtDatetime(job.completedAt) });
 
   return (

@@ -106,6 +106,7 @@ export default async function ConvertRequestPage({
     clientName:    linkedClient?.name ?? null,
     siteAddress:   resolvedAddress,
     addressSource,
+    preferredAt:   raw.preferred_at ?? null,
   };
 
   return (

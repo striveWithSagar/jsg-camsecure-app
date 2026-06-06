@@ -98,6 +98,8 @@ export function NewRequestForm() {
       return;
     }
 
+    const preferredAtVal = preferredRaw ? validateDateTimeLocalInput(preferredRaw, true) : null;
+
     const { data: inserted, error: insertError } = await supabase
       .from("service_requests")
       .insert({
@@ -110,6 +112,7 @@ export function NewRequestForm() {
         description:             desc,
         notes,
         site_address:            address,
+        preferred_at:            preferredAtVal,
       })
       .select("id, request_number")
       .single();

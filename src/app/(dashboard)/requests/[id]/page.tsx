@@ -42,6 +42,7 @@ export default async function RequestDetailPage({
     notes:          raw.notes,
     created:        formatDate(raw.created_at),
     requestNumber:  raw.request_number ?? null,
+    preferredAt:    raw.preferred_at ?? null,
   } : null;
 
   return (

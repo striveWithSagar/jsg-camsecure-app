@@ -44,6 +44,7 @@ export type JobDetailData = {
   scheduled:        string;        // formatted display
   scheduledAt:      string | null; // raw ISO
   completedAt:      string | null; // raw ISO
+  deadlineAt:       string | null; // raw ISO
   createdAt:        string;        // raw ISO
   updatedAt:        string;        // raw ISO
   requestCreatedAt: string | null; // raw ISO — from linked service_request
@@ -345,7 +346,7 @@ export async function getJobById(id: string): Promise<JobDetailData | null> {
     .from("jobs")
     .select(`
       id, organization_id, service_type, priority, status,
-      site_name, address, scheduled_at, completed_at, created_at, updated_at,
+      site_name, address, scheduled_at, completed_at, deadline_at, created_at, updated_at,
       dispatcher_notes, technician_notes,
       request_id, technician_id, job_number,
       clients(name),
@@ -394,6 +395,7 @@ export async function getJobById(id: string): Promise<JobDetailData | null> {
     address:              string | null;
     scheduled_at:         string | null;
     completed_at:         string | null;
+    deadline_at:          string | null;
     created_at:           string;
     updated_at:           string;
     dispatcher_notes:     string;
@@ -444,6 +446,7 @@ export async function getJobById(id: string): Promise<JobDetailData | null> {
     scheduled:        formatScheduled(row.scheduled_at),
     scheduledAt:      row.scheduled_at ?? null,
     completedAt:      row.completed_at ?? null,
+    deadlineAt:       row.deadline_at ?? null,
     createdAt:        row.created_at,
     updatedAt:        row.updated_at,
     requestCreatedAt: extractReqCreatedAt(row.service_requests),
@@ -484,14 +487,16 @@ export type ExportJobRow = {
   status:        string;
   technician:    string;
   scheduledAt:   string | null;
-  createdAt:     string;
   completedAt:   string | null;
+  deadlineAt:    string | null;
+  createdAt:     string;
   adminNotes:    string;
   techNotes:     string;
   clientConcern: string; // from service_requests.description
   invoiceNumber: string;
   invoiceStatus: string;
   invoiceTotal:  number | null;
+  preferredAt:   string | null; // from linked service_request.preferred_at
   photoCount:    number;
   exportReason:  string; // "Scheduled this week" | "Overdue carry-forward" | "Unscheduled"
 };
@@ -526,11 +531,11 @@ export async function getJobsForWeeklyExport(
       .from("jobs")
       .select(`
         id, job_number, service_type, priority, status,
-        site_name, address, scheduled_at, completed_at, created_at, updated_at,
+        site_name, address, scheduled_at, completed_at, deadline_at, created_at, updated_at,
         dispatcher_notes, technician_notes,
         clients(name),
         technicians(profiles(full_name)),
-        service_requests!request_id(description),
+        service_requests!request_id(description, preferred_at),
         invoices(invoice_number, status, total),
         job_photos(id)
       `)
@@ -544,11 +549,11 @@ export async function getJobsForWeeklyExport(
       .from("jobs")
       .select(`
         id, job_number, service_type, priority, status,
-        site_name, address, scheduled_at, completed_at, created_at, updated_at,
+        site_name, address, scheduled_at, completed_at, deadline_at, created_at, updated_at,
         dispatcher_notes, technician_notes,
         clients(name),
         technicians(profiles(full_name)),
-        service_requests!request_id(description),
+        service_requests!request_id(description, preferred_at),
         invoices(invoice_number, status, total),
         job_photos(id)
       `)
@@ -572,6 +577,7 @@ export async function getJobsForWeeklyExport(
     address:           string | null;
     scheduled_at:      string | null;
     completed_at:      string | null;
+    deadline_at:       string | null;
     created_at:        string;
     updated_at:        string;
     dispatcher_notes:  string;
@@ -579,7 +585,8 @@ export async function getJobsForWeeklyExport(
     clients:           { name: string } | { name: string }[] | null;
     technicians:       { profiles: { full_name: string } | { full_name: string }[] | null }
                      | { profiles: { full_name: string } | { full_name: string }[] | null }[] | null;
-    service_requests:  { description: string } | { description: string }[] | null;
+    service_requests:  { description: string; preferred_at: string | null }
+                     | { description: string; preferred_at: string | null }[] | null;
     invoices:          { invoice_number: string; status: string; total: string | number }[]
                      | { invoice_number: string; status: string; total: string | number } | null;
     job_photos:        { id: string }[] | null;
@@ -599,7 +606,11 @@ export async function getJobsForWeeklyExport(
 
     const clientNotes = Array.isArray(row.service_requests)
       ? (row.service_requests[0]?.description ?? "")
-      : ((row.service_requests as { description: string } | null)?.description ?? "");
+      : ((row.service_requests as { description: string; preferred_at: string | null } | null)?.description ?? "");
+
+    const preferredAt = Array.isArray(row.service_requests)
+      ? (row.service_requests[0]?.preferred_at ?? null)
+      : ((row.service_requests as { description: string; preferred_at: string | null } | null)?.preferred_at ?? null);
 
     const inv = Array.isArray(row.invoices)
       ? row.invoices[0]
@@ -616,11 +627,13 @@ export async function getJobsForWeeklyExport(
       status:        row.status,
       technician:    techName,
       scheduledAt:   row.scheduled_at ?? null,
-      createdAt:     row.created_at,
       completedAt:   row.completed_at ?? null,
+      deadlineAt:    row.deadline_at ?? null,
+      createdAt:     row.created_at,
       adminNotes:    row.dispatcher_notes ?? "",
       techNotes:     row.technician_notes ?? "",
       clientConcern: clientNotes,
+      preferredAt:   preferredAt,
       invoiceNumber: inv?.invoice_number ?? "—",
       invoiceStatus: inv?.status ?? "—",
       invoiceTotal:  inv ? Number(inv.total) : null,

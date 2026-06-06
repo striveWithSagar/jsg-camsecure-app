@@ -132,6 +132,8 @@ export default function ClientNewRequestPage() {
     }
 
     // Step 1 — create the service request
+    const preferredAtVal = preferredRaw ? validateDateTimeLocalInput(preferredRaw, true) : null;
+
     const { data, error: insertError } = await supabase
       .from("service_requests")
       .insert({
@@ -147,6 +149,7 @@ export default function ClientNewRequestPage() {
         description:             desc,
         notes:                   "",
         site_address:            address,
+        preferred_at:            preferredAtVal,
       })
       .select("id, request_number")
       .single();

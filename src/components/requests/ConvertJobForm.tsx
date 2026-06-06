@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
 import { cn, fmtJobNumber, fmtReqNumber } from "@/lib/utils";
-import { validateDateTimeLocalInput } from "@/lib/date-input";
+import { validateDateTimeLocalInput, toDateTimeLocalInputValue } from "@/lib/date-input";
 import { ArrowLeft, Briefcase, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import Link from "next/link";
 
@@ -31,6 +31,7 @@ export type ConvertRequestData = {
   clientName:    string | null; // resolved name for read-only display
   siteAddress:   string;        // resolved address — from request, client fallback, or ""
   addressSource: "request" | "client" | "none"; // which source provided the address
+  preferredAt:   string | null; // from service_requests.preferred_at — prefills schedule
 };
 
 type Errors = Partial<Record<string, string>>;
@@ -128,6 +129,14 @@ export function ConvertJobForm({
       setSubmitError(rpcError?.message ?? "Failed to create job. Please try again.");
       setLoading(false);
       return;
+    }
+
+    // Save deadline_at if provided (RPC has no p_deadline_at param — direct UPDATE)
+    if (deadlineRaw) {
+      await supabase
+        .from("jobs")
+        .update({ deadline_at: deadlineRaw })
+        .eq("id", jobId as string);
     }
 
     const { data: jobData } = await supabase
@@ -285,6 +294,7 @@ export function ConvertJobForm({
               </Label>
               <DateTimeInput
                 id="schedule" name="schedule" type="datetime-local"
+                defaultValue={toDateTimeLocalInputValue(request.preferredAt)}
                 className={cn("h-9 text-sm", errors.schedule && "border-destructive")}
                 onChange={() => clearError("schedule")}
               />

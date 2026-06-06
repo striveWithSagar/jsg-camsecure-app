@@ -255,6 +255,12 @@ export function JobDetail({
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Priority</p>
                 <p className="text-foreground font-medium capitalize">{priority}</p>
               </div>
+              {job.deadlineAt && (
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Deadline</p>
+                  <p className="text-foreground font-medium">{fmtDatetime(job.deadlineAt)}</p>
+                </div>
+              )}
             </div>
             {(job.dispatcherNotes || job.technicianNotes || job.requestId) && (
               <>
@@ -415,6 +421,12 @@ export function JobDetail({
                 <div className="flex justify-between gap-2">
                   <span className="text-muted-foreground">Scheduled</span>
                   <span className="text-foreground font-medium text-right">{fmtDatetime(job.scheduledAt)}</span>
+                </div>
+              )}
+              {job.deadlineAt && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Deadline</span>
+                  <span className="text-foreground font-medium text-right">{fmtDatetime(job.deadlineAt)}</span>
                 </div>
               )}
               {job.completedAt && (

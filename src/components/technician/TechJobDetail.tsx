@@ -8,7 +8,7 @@ import { TechFieldNotes } from "@/components/technician/TechFieldNotes";
 import { TechChecklist } from "@/components/technician/TechChecklist";
 import { JobPhotoPanel } from "@/components/jobs/JobPhotoPanel";
 import { fmtJobNumber, fmtDatetime, calcJobAge } from "@/lib/utils";
-import { ArrowLeft, MapPin, Clock, Wrench, Phone } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Wrench, Phone, Timer } from "lucide-react";
 import Link from "next/link";
 
 export function TechJobDetail({ job }: { job: JobDetailData }) {
@@ -41,20 +41,24 @@ export function TechJobDetail({ job }: { job: JobDetailData }) {
 
       {/* Job details */}
       <div className="rounded-xl border border-border bg-card divide-y divide-border">
-        {[
+        {([
           { icon: Wrench, label: "Service Type", value: job.type },
           { icon: Clock,  label: "Scheduled",    value: job.scheduled },
+          job.deadlineAt ? { icon: Timer, label: "Deadline", value: fmtDatetime(job.deadlineAt) } : null,
           { icon: MapPin, label: "Address",       value: job.address },
           { icon: Phone,  label: "Dispatcher",    value: dispatcherContact },
-        ].map(({ icon: Icon, label, value }) => (
-          <div key={label} className="flex items-start gap-3 px-4 py-3.5">
-            <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-              <p className="text-sm font-medium text-foreground">{value}</p>
+        ] as ({ icon: React.ElementType; label: string; value: string } | null)[]).filter(Boolean).map(item => {
+          const { icon: Icon, label, value } = item!;
+          return (
+            <div key={label} className="flex items-start gap-3 px-4 py-3.5">
+              <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+                <p className="text-sm font-medium text-foreground">{value}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Navigate button */}
@@ -88,6 +92,12 @@ export function TechJobDetail({ job }: { job: JobDetailData }) {
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">Scheduled</span>
               <span className="text-foreground font-medium">{fmtDatetime(job.scheduledAt)}</span>
+            </div>
+          )}
+          {job.deadlineAt && (
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Deadline</span>
+              <span className="text-foreground font-medium">{fmtDatetime(job.deadlineAt)}</span>
             </div>
           )}
           {job.completedAt && (

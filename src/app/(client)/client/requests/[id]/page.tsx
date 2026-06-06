@@ -95,19 +95,30 @@ export default async function ClientRequestDetailPage({
           </p>
         </div>
         <dl className="divide-y divide-border">
-          {[
-            { label: "Service Type", value: request.serviceType },
-            { label: "Submitted",    value: <span className="flex items-center gap-1.5"><Clock className="h-3 w-3 text-muted-foreground" />{fmtDatetime(request.createdAt)}</span> },
-            {
-              label: "Duration",
-              value: <span className={ageInfo.isComplete ? "font-semibold" : ""} style={ageInfo.isComplete ? { color: "var(--cp-cyan-text)" } : undefined}>{ageInfo.label}</span>,
-            },
-          ].map(({ label, value }) => (
-            <div key={label} className="flex gap-3 px-5 py-3">
-              <dt className="w-32 text-xs text-muted-foreground shrink-0">{label}</dt>
-              <dd className="text-xs text-foreground">{value}</dd>
+          <div className="flex gap-3 px-5 py-3">
+            <dt className="w-32 text-xs text-muted-foreground shrink-0">Service Type</dt>
+            <dd className="text-xs text-foreground">{request.serviceType}</dd>
+          </div>
+          <div className="flex gap-3 px-5 py-3">
+            <dt className="w-32 text-xs text-muted-foreground shrink-0">Submitted</dt>
+            <dd className="text-xs text-foreground">
+              <span className="flex items-center gap-1.5"><Clock className="h-3 w-3 text-muted-foreground" />{fmtDatetime(request.createdAt)}</span>
+            </dd>
+          </div>
+          {request.preferredAt && (
+            <div className="flex gap-3 px-5 py-3">
+              <dt className="w-32 text-xs text-muted-foreground shrink-0">Preferred Date/Time</dt>
+              <dd className="text-xs text-foreground">
+                <span className="flex items-center gap-1.5"><Clock className="h-3 w-3 text-muted-foreground" />{fmtDatetime(request.preferredAt)}</span>
+              </dd>
             </div>
-          ))}
+          )}
+          <div className="flex gap-3 px-5 py-3">
+            <dt className="w-32 text-xs text-muted-foreground shrink-0">Duration</dt>
+            <dd className="text-xs text-foreground">
+              <span className={ageInfo.isComplete ? "font-semibold" : ""} style={ageInfo.isComplete ? { color: "var(--cp-cyan-text)" } : undefined}>{ageInfo.label}</span>
+            </dd>
+          </div>
         </dl>
       </div>
 

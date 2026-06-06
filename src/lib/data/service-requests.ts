@@ -39,6 +39,7 @@ export type ServiceRequest = {
   description: string;
   notes: string;
   site_address: string;
+  preferred_at: string | null;
   converted_to_job_id: string | null;
   request_number: number | null;
   created_at: string;
