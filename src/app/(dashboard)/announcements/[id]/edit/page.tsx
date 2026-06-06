@@ -10,7 +10,13 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Edit Announcement · CamSecure" };
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  try {
+    return d.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "—";
+  }
 }
 
 export default async function EditAnnouncementPage({ params }: { params: Promise<{ id: string }> }) {

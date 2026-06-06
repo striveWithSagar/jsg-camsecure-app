@@ -15,6 +15,29 @@ import type { AnnouncementRow } from "@/lib/data/announcements";
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES    = 10 * 1024 * 1024;
 
+// HTML date inputs require exactly YYYY-MM-DD (4-digit year).
+// Postgres returns 6-digit years for far-future dates (e.g. "222222-02-22 00:00:00+00").
+// .slice(0,10) on those produces "222222-02-" which causes React hydration mismatch crashes.
+function toDateInputValue(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+}
+
+const MIN_DATE = "2024-01-01";
+const MAX_DATE = "2100-12-31";
+
+// Returns validated YYYY-MM-DD string, null for blank, or throws a user-facing message.
+function validateDateInput(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Error("Please enter a valid date between 2024 and 2100.");
+  const d = new Date(v);
+  if (isNaN(d.getTime()))  throw new Error("Please enter a valid date between 2024 and 2100.");
+  if (v < MIN_DATE || v > MAX_DATE) throw new Error("Please enter a date between 2024 and 2100.");
+  return v;
+}
+
 function sanitizeFileName(name: string): string {
   const ext  = name.includes(".") ? "." + name.split(".").pop()!.toLowerCase() : "";
   const base = name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9-]/g, "_");
@@ -34,8 +57,8 @@ export function AnnouncementForm({ mode, initial, orgId }: Props) {
   const [description, setDescription] = useState(initial?.description ?? "");
   const [ctaText,     setCtaText]     = useState(initial?.ctaText ?? "I'm Interested");
   const [isPublished, setIsPublished] = useState(initial?.isPublished ?? false);
-  const [startsAt,    setStartsAt]    = useState(initial?.startsAt ? initial.startsAt.slice(0, 10) : "");
-  const [endsAt,      setEndsAt]      = useState(initial?.endsAt   ? initial.endsAt.slice(0, 10)   : "");
+  const [startsAt,    setStartsAt]    = useState(toDateInputValue(initial?.startsAt));
+  const [endsAt,      setEndsAt]      = useState(toDateInputValue(initial?.endsAt));
   const [posterFile,  setPosterFile]  = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const [fileError,   setFileError]   = useState<string | null>(null);
@@ -67,6 +90,22 @@ export function AnnouncementForm({ mode, initial, orgId }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) { toast.error("Title is required"); return; }
+
+    // Validate date window before any network call
+    let normalizedStartsAt: string | null;
+    let normalizedEndsAt: string | null;
+    try {
+      normalizedStartsAt = validateDateInput(startsAt);
+      normalizedEndsAt   = validateDateInput(endsAt);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid date");
+      return;
+    }
+    if (normalizedStartsAt && normalizedEndsAt && normalizedStartsAt > normalizedEndsAt) {
+      toast.error("Hide after date must be after Show from date.");
+      return;
+    }
+
     setLoading(true);
 
     const supabase = createClient();
@@ -88,8 +127,8 @@ export function AnnouncementForm({ mode, initial, orgId }: Props) {
             description:     description.trim() || null,
             cta_text:        ctaText.trim() || "I'm Interested",
             is_published:    isPublished,
-            starts_at:       startsAt || null,
-            ends_at:         endsAt   || null,
+            starts_at:       normalizedStartsAt,
+            ends_at:         normalizedEndsAt,
             created_by:      user.id,
           })
           .select("id")
@@ -142,8 +181,8 @@ export function AnnouncementForm({ mode, initial, orgId }: Props) {
             cta_text:     ctaText.trim() || "I'm Interested",
             poster_path:  posterPath,
             is_published: isPublished,
-            starts_at:    startsAt || null,
-            ends_at:      endsAt   || null,
+            starts_at:    normalizedStartsAt,
+            ends_at:      normalizedEndsAt,
           })
           .eq("id", initial.id);
         if (updateErr) throw new Error(updateErr.message);
@@ -267,6 +306,8 @@ export function AnnouncementForm({ mode, initial, orgId }: Props) {
             type="date"
             value={startsAt}
             onChange={e => setStartsAt(e.target.value)}
+            min={MIN_DATE}
+            max={MAX_DATE}
             className="h-9 text-sm"
           />
         </div>
@@ -277,6 +318,8 @@ export function AnnouncementForm({ mode, initial, orgId }: Props) {
             type="date"
             value={endsAt}
             onChange={e => setEndsAt(e.target.value)}
+            min={MIN_DATE}
+            max={MAX_DATE}
             className="h-9 text-sm"
           />
         </div>
