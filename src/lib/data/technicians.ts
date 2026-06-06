@@ -102,7 +102,8 @@ export async function getTechnicians(): Promise<TechnicianOption[]> {
   // profiles_select_own_org RLS allows admin to read all profiles in their org.
   const { data, error } = await supabase
     .from("technicians")
-    .select("id, profile_id, specialty, status, profiles(full_name)");
+    .select("id, profile_id, specialty, status, profiles(full_name)")
+    .eq("is_active", true);
 
   if (error) {
     console.error("[getTechnicians]", error.message);
@@ -145,19 +146,25 @@ export type TechnicianJobItem = {
   status:    string;
 };
 
+export type ActiveJobItem = {
+  id:        string;
+  jobNumber: number | null;
+};
+
 export type TechnicianDetailData = {
-  id:           string;
-  profileId:    string | null;
-  name:         string;
-  email:        string;
-  phone:        string;
-  specialty:    string;
-  status:       string;
-  isActive:     boolean;
-  createdAt:    string;
-  activeJobs:   number;
-  completedJobs:number;
-  recentJobs:   TechnicianJobItem[];
+  id:             string;
+  profileId:      string | null;
+  name:           string;
+  email:          string;
+  phone:          string;
+  specialty:      string;
+  status:         string;
+  isActive:       boolean;
+  createdAt:      string;
+  activeJobs:     number;
+  completedJobs:  number;
+  recentJobs:     TechnicianJobItem[];
+  activeJobItems: ActiveJobItem[];
 };
 
 const SERVICE_TYPE_LABELS_T: Record<string, string> = {
@@ -182,7 +189,7 @@ export async function getTechnicianById(id: string): Promise<TechnicianDetailDat
     .select(`
       id, profile_id, specialty, status, is_active, created_at,
       profiles(full_name, email, phone),
-      jobs(id, service_type, priority, status, scheduled_at)
+      jobs(id, job_number, service_type, priority, status, scheduled_at)
     `)
     .eq("id", id)
     .single();
@@ -196,7 +203,7 @@ export async function getTechnicianById(id: string): Promise<TechnicianDetailDat
 
   type ProfEmbed = { full_name: string; email: string; phone: string | null }
     | { full_name: string; email: string; phone: string | null }[] | null;
-  type JobEmbed = { id: string; service_type: string; priority: string; status: string; scheduled_at: string | null };
+  type JobEmbed = { id: string; job_number: number | null; service_type: string; priority: string; status: string; scheduled_at: string | null };
   type RawDetail = {
     id: string; profile_id: string | null; specialty: string | null;
     status: string; is_active: boolean; created_at: string;
@@ -210,8 +217,13 @@ export async function getTechnicianById(id: string): Promise<TechnicianDetailDat
   const email = prof?.email     ?? "";
   const phone = prof?.phone     ?? "";
 
+  const ACTIVE_STATUSES = new Set(["assigned", "on_the_way", "started", "in_progress", "needs_parts"]);
+
   const rawJobs = (row.jobs ?? []);
-  const activeJobs    = rawJobs.filter(j => !["completed","cancelled"].includes(j.status)).length;
+  const activeJobItems = rawJobs
+    .filter(j => ACTIVE_STATUSES.has(j.status))
+    .map(j => ({ id: j.id, jobNumber: j.job_number ?? null }));
+  const activeJobs    = activeJobItems.length;
   const completedJobs = rawJobs.filter(j => j.status === "completed").length;
 
   const recentJobs = rawJobs
@@ -226,17 +238,18 @@ export async function getTechnicianById(id: string): Promise<TechnicianDetailDat
     }));
 
   return {
-    id:           row.id,
-    profileId:    row.profile_id,
+    id:             row.id,
+    profileId:      row.profile_id,
     name,
     email,
     phone,
-    specialty:    row.specialty ?? "",
-    status:       row.status,
-    isActive:     row.is_active,
-    createdAt:    row.created_at,
+    specialty:      row.specialty ?? "",
+    status:         row.status,
+    isActive:       row.is_active,
+    createdAt:      row.created_at,
     activeJobs,
     completedJobs,
     recentJobs,
+    activeJobItems,
   };
 }

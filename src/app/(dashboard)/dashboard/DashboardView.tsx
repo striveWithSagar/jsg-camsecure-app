@@ -17,10 +17,11 @@ const PRIORITY_DOT: Record<string, string> = {
 };
 
 const TECH_STATUS: Record<string, { dot: string; label: string }> = {
-  on_job:     { dot: "bg-primary",          label: "On Job" },
-  on_the_way: { dot: "bg-c-teal-solid",     label: "En Route" },
-  available:  { dot: "bg-c-success-solid",  label: "Available" },
-  off_duty:   { dot: "bg-muted-foreground", label: "Off Duty" },
+  on_job:      { dot: "bg-primary",           label: "On Job" },
+  on_the_way:  { dot: "bg-c-teal-solid",      label: "En Route" },
+  available:   { dot: "bg-c-success-solid",   label: "Available" },
+  needs_parts: { dot: "bg-c-warning-solid",   label: "Needs Parts" },
+  off_duty:    { dot: "bg-muted-foreground",  label: "Off Duty" },
 };
 
 function initials(name: string) {
@@ -154,10 +155,11 @@ export function DashboardView({ data }: { data: DashboardData }) {
                     </div>
                     <span className={cn(
                       "text-[10px] font-medium shrink-0 px-1.5 py-0.5 rounded",
-                      member.status === "available"  && "text-c-success bg-c-success",
-                      member.status === "on_job"     && "text-primary bg-primary/10",
-                      member.status === "on_the_way" && "text-c-teal bg-c-teal",
-                      member.status === "off_duty"   && "text-muted-foreground bg-muted/40",
+                      member.status === "available"   && "text-c-success bg-c-success",
+                      member.status === "on_job"      && "text-primary bg-primary/10",
+                      member.status === "on_the_way"  && "text-c-teal bg-c-teal",
+                      member.status === "needs_parts" && "text-c-warning bg-c-warning/10",
+                      member.status === "off_duty"    && "text-muted-foreground bg-muted/40",
                     )}>
                       {s.label}
                     </span>

@@ -270,26 +270,28 @@ async function deactivateAccount(
     return { success: false, error: "Account is already deactivated" };
   }
 
-  let activeJobCount = 0;
-  let warningMessage: string | null = null;
-
   if (role === "technician") {
-    // Check for active assigned jobs
+    // Hard block: technician must have no active jobs before deactivation
     const { data: tech } = await admin.from("technicians")
       .select("id").eq("profile_id", profileId).single();
 
     if (tech) {
-      const { count } = await admin.from("jobs")
-        .select("id", { count: "exact", head: true })
+      const { data: activeJobs } = await admin.from("jobs")
+        .select("id, job_number")
         .eq("technician_id", tech.id)
-        .not("status", "in", '("completed","cancelled")');
+        .in("status", ["assigned", "on_the_way", "started", "in_progress", "needs_parts"]);
 
-      activeJobCount = count ?? 0;
-      if (activeJobCount > 0) {
-        warningMessage = `This technician has ${activeJobCount} active job(s). They will remain assigned but the technician cannot log in. Consider reassigning.`;
+      if (activeJobs && activeJobs.length > 0) {
+        const jobLabels = activeJobs
+          .map(j => j.job_number ? `JOB-${String(j.job_number).padStart(4, "0")}` : "(no number)")
+          .join(", ");
+        return {
+          success: false,
+          error: `This technician has ${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}. Reassign or complete those jobs before deactivating. Active jobs: ${jobLabels}`,
+        };
       }
 
-      // Deactivate technician row
+      // No active jobs — deactivate technician row
       await admin.from("technicians").update({ is_active: false }).eq("profile_id", profileId);
     }
   }
@@ -302,12 +304,7 @@ async function deactivateAccount(
 
   return {
     success: true,
-    data: {
-      profileId,
-      deactivatedAt:  now,
-      warning:        warningMessage,
-      activeJobCount,
-    },
+    data: { profileId, deactivatedAt: now },
   };
 }
 

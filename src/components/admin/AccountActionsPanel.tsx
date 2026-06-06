@@ -16,11 +16,12 @@ import { cn } from "@/lib/utils";
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type Props = {
-  profileId:      string | null;
-  role:           "client" | "technician";
-  isActive:       boolean;
-  name:           string;
+  profileId:       string | null;
+  role:            "client" | "technician";
+  isActive:        boolean;
+  name:            string;
   activeJobCount?: number;
+  activeJobItems?: { id: string; jobNumber: number | null }[];
 };
 
 type Modal = "none" | "deactivate" | "reactivate" | "reset_password";
@@ -28,7 +29,7 @@ type Modal = "none" | "deactivate" | "reactivate" | "reset_password";
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function AccountActionsPanel({
-  profileId, role, isActive, name, activeJobCount = 0,
+  profileId, role, isActive, name, activeJobCount = 0, activeJobItems = [],
 }: Props) {
   const router = useRouter();
 
@@ -211,36 +212,60 @@ export function AccountActionsPanel({
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {role === "technician" && activeJobCount > 0 && (
-                <div className="flex items-start gap-2 rounded-md border border-c-warning/30 bg-c-warning/8 px-3 py-2.5">
-                  <AlertTriangle className="h-3.5 w-3.5 text-c-warning shrink-0 mt-0.5" />
-                  <p className="text-xs leading-relaxed">
-                    <span className="font-medium">Warning:</span>{" "}
-                    {name} has {activeJobCount} active job{activeJobCount !== 1 ? "s" : ""}.
-                    Deactivating will prevent login but historical jobs remain assigned.
+              {role === "technician" && activeJobCount > 0 ? (
+                <>
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
+                    <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-destructive">
+                        Cannot deactivate: {name} has {activeJobCount} active job{activeJobCount !== 1 ? "s" : ""}.
+                      </p>
+                      {activeJobItems.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Reassign or complete before deactivating:{" "}
+                          {activeJobItems.map((j, i) => (
+                            <span key={j.id}>
+                              {i > 0 && ", "}
+                              <span className="font-mono font-medium text-foreground">
+                                {j.jobNumber ? `JOB-${String(j.jobNumber).padStart(4, "0")}` : "(no #)"}
+                              </span>
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1 h-9 text-xs"
+                      onClick={closeModal}>
+                      Close
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Deactivate <span className="font-medium text-foreground">{name}</span>?
+                    They will no longer be able to log in to the portal.
                   </p>
-                </div>
+                  {actionError && (
+                    <p className="text-xs text-destructive bg-destructive/8 border border-destructive/20 rounded-md px-3 py-2">
+                      {actionError}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1 h-9 text-xs"
+                      onClick={closeModal} disabled={loading}>
+                      Cancel
+                    </Button>
+                    <Button size="sm"
+                      className="flex-1 h-9 text-xs bg-destructive hover:bg-destructive/90 text-white"
+                      onClick={handleDeactivate} disabled={loading}>
+                      {loading ? "Deactivating…" : "Deactivate"}
+                    </Button>
+                  </div>
+                </>
               )}
-              <p className="text-sm text-muted-foreground">
-                Deactivate <span className="font-medium text-foreground">{name}</span>?
-                They will no longer be able to log in to the portal.
-              </p>
-              {actionError && (
-                <p className="text-xs text-destructive bg-destructive/8 border border-destructive/20 rounded-md px-3 py-2">
-                  {actionError}
-                </p>
-              )}
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1 h-9 text-xs"
-                  onClick={closeModal} disabled={loading}>
-                  Cancel
-                </Button>
-                <Button size="sm"
-                  className="flex-1 h-9 text-xs bg-destructive hover:bg-destructive/90 text-white"
-                  onClick={handleDeactivate} disabled={loading}>
-                  {loading ? "Deactivating…" : "Deactivate"}
-                </Button>
-              </div>
             </div>
           </DialogContent>
         )}

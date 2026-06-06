@@ -115,6 +115,7 @@ export default async function TechnicianDetailPage({
               isActive={tech.isActive}
               name={tech.name}
               activeJobCount={tech.activeJobs}
+              activeJobItems={tech.activeJobItems}
             />
             <div className="rounded-lg border border-border bg-card p-5 space-y-4">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">

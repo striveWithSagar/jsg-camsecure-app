@@ -13,7 +13,15 @@ const SERVICE_TYPE_LABELS: Record<string, string> = {
   other:             "Other",
 };
 
-const ACTIVE_JOB_STATUSES = new Set(["assigned", "on_the_way", "started", "in_progress"]);
+const ACTIVE_JOB_STATUSES = new Set(["assigned", "on_the_way", "started", "in_progress", "needs_parts"]);
+
+const JOB_STATUS_TO_TECH: Record<string, string> = {
+  assigned:    "on_job",
+  on_the_way:  "on_the_way",
+  started:     "on_job",
+  in_progress: "on_job",
+  needs_parts: "needs_parts",
+};
 
 export type DashTodayJob = {
   id:        string;
@@ -102,7 +110,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       .order("created_at", { ascending: false }),
     supabase
       .from("technicians")
-      .select("id, specialty, status, profiles(full_name)"),
+      .select("id, specialty, status, is_active, profiles(full_name)")
+      .eq("is_active", true),
     supabase
       .from("invoices")
       .select("status, total, paid_at"),
@@ -189,7 +198,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   // ── Technicians ───────────────────────────────────────────────
 
-  type TechRaw = { id: string; specialty: string | null; status: string; profiles: ProfileEmbed };
+  type TechRaw = { id: string; specialty: string | null; status: string; is_active: boolean; profiles: ProfileEmbed };
   if (techResult.error) console.error("[getDashboardData] technicians:", techResult.error.message);
   const rawTechs = (techResult.data ?? []) as unknown as TechRaw[];
 
@@ -199,12 +208,22 @@ export async function getDashboardData(): Promise<DashboardData> {
     return p.full_name ?? "Unknown";
   }
 
+  // Derive each active technician's status from their current non-terminal jobs
+  const techJobStatus: Record<string, string> = {};
+  for (const j of rawJobs) {
+    if (j.technician_id && ACTIVE_JOB_STATUSES.has(j.status)) {
+      if (!techJobStatus[j.technician_id]) {
+        techJobStatus[j.technician_id] = JOB_STATUS_TO_TECH[j.status] ?? "on_job";
+      }
+    }
+  }
+
   const crew: DashCrewMember[] = rawTechs
     .map(t => ({
       id:          t.id,
       name:        extractProfileName(t.profiles),
       specialty:   t.specialty ?? "",
-      status:      t.status,
+      status:      techJobStatus[t.id] ?? "available",
       currentSite: techActiveSite[t.id] ?? null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
