@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { PriorityBadge } from "@/components/shared/StatusBadge";
 import { cn, fmtJobNumber, fmtReqNumber } from "@/lib/utils";
+import { validateDateTimeLocalInput } from "@/lib/date-input";
 import { ArrowLeft, Briefcase, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import Link from "next/link";
 
@@ -72,18 +73,38 @@ export function ConvertJobForm({
     if (!request) return;
 
     // Capture form data synchronously before any awaits
-    const data     = new FormData(e.currentTarget);
-    const schedule = ((data.get("schedule")  as string) ?? "").trim();
-    const address  = ((data.get("address")   as string) ?? "").trim();
-    const tools    = ((data.get("tools")     as string) ?? "").trim();
-    const jobNotes = ((data.get("job-notes") as string) ?? "").trim();
+    const data        = new FormData(e.currentTarget);
+    const schedule    = ((data.get("schedule")  as string) ?? "").trim();
+    const deadlineRaw = ((data.get("deadline")  as string) ?? "").trim();
+    const address     = ((data.get("address")   as string) ?? "").trim();
+    const tools       = ((data.get("tools")     as string) ?? "").trim();
+    const jobNotes    = ((data.get("job-notes") as string) ?? "").trim();
 
     const next: Errors = {};
     // Only validate client selection when request has no pre-set client_id
     if (!request.clientId && !clientId) next.clientId = "Please select a client account.";
     if (!technicianId) next.technicianId = "Please assign a technician.";
-    if (!schedule)     next.schedule     = "Scheduled date and time is required.";
     if (!address)      next.address      = "Site address is required.";
+
+    // Validate scheduled date/time (required)
+    if (!schedule) {
+      next.schedule = "Scheduled date and time is required.";
+    } else {
+      try { validateDateTimeLocalInput(schedule, false); }
+      catch (err) { next.schedule = err instanceof Error ? err.message : "Invalid date and time."; }
+    }
+
+    // Validate deadline (optional)
+    if (deadlineRaw) {
+      try { validateDateTimeLocalInput(deadlineRaw, true); }
+      catch (err) { next.deadline = err instanceof Error ? err.message : "Invalid date and time."; }
+    }
+
+    // Deadline must be after scheduled date if both are provided and both are valid
+    if (!next.schedule && !next.deadline && schedule && deadlineRaw && deadlineRaw < schedule) {
+      next.deadline = "Deadline must be after the scheduled date and time.";
+    }
+
     if (Object.keys(next).length > 0) { setErrors(next); return; }
 
     setLoading(true);
@@ -271,7 +292,12 @@ export function ConvertJobForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="deadline" className="text-xs">Deadline (optional)</Label>
-              <DateTimeInput id="deadline" name="deadline" type="datetime-local" className="h-9 text-sm" />
+              <DateTimeInput
+                id="deadline" name="deadline" type="datetime-local"
+                className={cn("h-9 text-sm", errors.deadline && "border-destructive")}
+                onChange={() => clearError("deadline")}
+              />
+              {errors.deadline && <p className="text-xs text-destructive">{errors.deadline}</p>}
             </div>
           </div>
           <div className="space-y-1.5">

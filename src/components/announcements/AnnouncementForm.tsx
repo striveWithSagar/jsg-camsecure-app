@@ -10,33 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, X, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toDateInputValue, validateDateInput, MIN_DATE, MAX_DATE } from "@/lib/date-input";
 import type { AnnouncementRow } from "@/lib/data/announcements";
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES    = 10 * 1024 * 1024;
-
-// HTML date inputs require exactly YYYY-MM-DD (4-digit year).
-// Postgres returns 6-digit years for far-future dates (e.g. "222222-02-22 00:00:00+00").
-// .slice(0,10) on those produces "222222-02-" which causes React hydration mismatch crashes.
-function toDateInputValue(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
-}
-
-const MIN_DATE = "2024-01-01";
-const MAX_DATE = "2100-12-31";
-
-// Returns validated YYYY-MM-DD string, null for blank, or throws a user-facing message.
-function validateDateInput(value: string): string | null {
-  const v = value.trim();
-  if (!v) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Error("Please enter a valid date between 2024 and 2100.");
-  const d = new Date(v);
-  if (isNaN(d.getTime()))  throw new Error("Please enter a valid date between 2024 and 2100.");
-  if (v < MIN_DATE || v > MAX_DATE) throw new Error("Please enter a date between 2024 and 2100.");
-  return v;
-}
 
 function sanitizeFileName(name: string): string {
   const ext  = name.includes(".") ? "." + name.split(".").pop()!.toLowerCase() : "";

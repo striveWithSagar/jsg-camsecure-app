@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { SERVICE_TYPES, URGENCY_LEVELS } from "@/lib/constants";
 import { cn, fmtReqNumber } from "@/lib/utils";
+import { validateDateTimeLocalInput } from "@/lib/date-input";
 import Link from "next/link";
 
 const SERVICE_TYPE_MAP: Record<string, string> = {
@@ -93,17 +94,23 @@ export default function ClientNewRequestPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     // Capture synchronously before any awaits
-    const formData = new FormData(e.currentTarget);
-    const phone    = (formData.get("phone")       as string ?? "").trim();
-    const email    = (formData.get("email")       as string ?? "").trim();
-    const address  = (formData.get("address")     as string ?? "").trim();
-    const desc     = (formData.get("description") as string ?? "").trim();
+    const formData       = new FormData(e.currentTarget);
+    const phone          = (formData.get("phone")        as string ?? "").trim();
+    const email          = (formData.get("email")        as string ?? "").trim();
+    const address        = (formData.get("address")      as string ?? "").trim();
+    const desc           = (formData.get("description")  as string ?? "").trim();
+    const preferredRaw   = (formData.get("preferred")    as string ?? "").trim();
 
     const next: Errors = {};
     if (!phone && !email) next.phone       = "Provide a phone number or email.";
     if (!serviceType)     next.serviceType = "Please select a service type.";
     if (!urgency)         next.urgency     = "Please select an urgency level.";
     if (!desc)            next.description = "Please describe the issue.";
+
+    if (preferredRaw) {
+      try { validateDateTimeLocalInput(preferredRaw, true); }
+      catch (err) { next.preferred = err instanceof Error ? err.message : "Invalid date and time."; }
+    }
 
     if (Object.keys(next).length > 0) {
       setErrors(next);
@@ -390,7 +397,12 @@ export default function ClientNewRequestPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="preferred" className="text-xs">Preferred date / time</Label>
-            <DateTimeInput id="preferred" name="preferred" type="datetime-local" className="h-10 text-sm" />
+            <DateTimeInput
+              id="preferred" name="preferred" type="datetime-local"
+              className={cn("h-10 text-sm", errors.preferred && "border-destructive")}
+              onChange={() => clearError("preferred")}
+            />
+            {errors.preferred && <p className="text-xs text-destructive">{errors.preferred}</p>}
           </div>
         </section>
 

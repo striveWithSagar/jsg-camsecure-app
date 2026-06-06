@@ -4,6 +4,7 @@ import { useRef, forwardRef, useCallback, type ComponentProps } from "react";
 import { Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { MIN_DATE, MAX_DATE, MIN_DATETIME, MAX_DATETIME } from "@/lib/date-input";
 
 type DateTimeInputProps = Omit<ComponentProps<"input">, "type"> & {
   type?:             "date" | "datetime-local" | "time";
@@ -28,6 +29,13 @@ export const DateTimeInput = forwardRef<HTMLInputElement, DateTimeInputProps>(
     forwardedRef,
   ) {
     const localRef = useRef<HTMLInputElement>(null);
+
+    // Default min/max keeps user-entered years in a realistic range.
+    // Props override these defaults if the caller needs a different range.
+    const defaultMin = type === "datetime-local" ? MIN_DATETIME :
+                       type === "date"           ? MIN_DATE      : undefined;
+    const defaultMax = type === "datetime-local" ? MAX_DATETIME :
+                       type === "date"           ? MAX_DATE      : undefined;
 
     // Merge forwarded ref with our local ref
     const setRef = useCallback(
@@ -63,6 +71,8 @@ export const DateTimeInput = forwardRef<HTMLInputElement, DateTimeInputProps>(
           ref={setRef}
           type={type}
           disabled={disabled}
+          min={defaultMin}
+          max={defaultMax}
           className={cn("pr-9", className)}
           {...props}
         />

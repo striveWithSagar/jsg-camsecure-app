@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { SERVICE_TYPES, URGENCY_LEVELS } from "@/lib/constants";
 import { cn, fmtReqNumber } from "@/lib/utils";
+import { validateDateTimeLocalInput } from "@/lib/date-input";
 import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
@@ -48,12 +49,13 @@ export function NewRequestForm() {
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     const data         = new FormData(e.currentTarget);
-    const clientName   = ((data.get("client-name")   as string) ?? "").trim();
-    const businessName = ((data.get("business-name") as string) ?? "").trim();
-    const phone        = ((data.get("phone")          as string) ?? "").trim();
-    const address      = ((data.get("address")        as string) ?? "").trim();
-    const desc         = ((data.get("description")    as string) ?? "").trim();
-    const notes        = ((data.get("notes")          as string) ?? "").trim();
+    const clientName   = ((data.get("client-name")        as string) ?? "").trim();
+    const businessName = ((data.get("business-name")      as string) ?? "").trim();
+    const phone        = ((data.get("phone")               as string) ?? "").trim();
+    const address      = ((data.get("address")             as string) ?? "").trim();
+    const desc         = ((data.get("description")         as string) ?? "").trim();
+    const notes        = ((data.get("notes")               as string) ?? "").trim();
+    const preferredRaw = ((data.get("preferred-datetime")  as string) ?? "").trim();
 
     const next: Errors = {};
     if (!clientName)   next["client-name"] = "Client name is required.";
@@ -61,6 +63,11 @@ export function NewRequestForm() {
     if (!serviceType)  next.serviceType    = "Please select a service type.";
     if (!urgency)      next.urgency        = "Please select an urgency level.";
     if (!desc)         next.description    = "Please describe the issue.";
+
+    if (preferredRaw) {
+      try { validateDateTimeLocalInput(preferredRaw, true); }
+      catch (err) { next["preferred-datetime"] = err instanceof Error ? err.message : "Invalid date and time."; }
+    }
 
     if (Object.keys(next).length > 0) {
       setErrors(next);
@@ -248,7 +255,14 @@ export function NewRequestForm() {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="preferred-datetime" className="text-xs">Preferred Date & Time</Label>
-          <DateTimeInput id="preferred-datetime" name="preferred-datetime" type="datetime-local" className="h-9 text-sm" />
+          <DateTimeInput
+            id="preferred-datetime" name="preferred-datetime" type="datetime-local"
+            className={cn("h-9 text-sm", errors["preferred-datetime"] && "border-destructive")}
+            onChange={() => clear("preferred-datetime")}
+          />
+          {errors["preferred-datetime"] && (
+            <p className="text-xs text-destructive">{errors["preferred-datetime"]}</p>
+          )}
         </div>
       </section>
 

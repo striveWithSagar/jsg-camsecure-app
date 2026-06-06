@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { JobBucket, JobRow } from "@/lib/data/jobs";
 import { StatusBadge, PriorityBadge } from "@/components/shared/StatusBadge";
 import { fmtJobNumber, businessDateKey, BUSINESS_TZ } from "@/lib/utils";
+import { validateDateInput } from "@/lib/date-input";
 import { AlertTriangle, Calendar, ChevronDown, ChevronRight, Clock, Download, User } from "lucide-react";
 import { DateTimeInput } from "@/components/ui/date-time-input";
 import Link from "next/link";
@@ -349,7 +350,11 @@ export function JobBoard({ bucket, dateParam }: { bucket: JobBucket; dateParam: 
           <DateTimeInput
             type="date"
             value={activeTab === "custom" ? dateParam : ""}
-            onChange={e => (e.target as HTMLInputElement).value && nav((e.target as HTMLInputElement).value)}
+            onChange={e => {
+              const val = (e.target as HTMLInputElement).value;
+              if (!val) return;
+              try { validateDateInput(val, false); nav(val); } catch { /* ignore invalid manual input */ }
+            }}
             title="Pick a date"
             className="h-7 text-xs text-muted-foreground bg-transparent border-0 shadow-none focus-visible:ring-0 dark:bg-transparent hover:text-foreground cursor-pointer px-2"
             wrapperClassName="inline-flex items-center"
