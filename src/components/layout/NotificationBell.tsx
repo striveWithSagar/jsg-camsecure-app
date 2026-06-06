@@ -58,6 +58,7 @@ const EVENT_ICON: Record<string, string> = {
   request_status_updated_client:"📬",
   job_completed_client:                "✅",
   account_password_help_requested:     "🔑",
+  client_announcement_interest:        "💬",
 };
 
 export function NotificationBell() {

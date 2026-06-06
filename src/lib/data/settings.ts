@@ -7,6 +7,7 @@ export type OrgSettings = {
   address:           string;
   invoiceFooterNote: string;
   companySettingsId: string;
+  googleReviewUrl:   string;
 };
 
 export async function getOrgSettings(): Promise<OrgSettings | null> {
@@ -19,7 +20,7 @@ export async function getOrgSettings(): Promise<OrgSettings | null> {
       .single(),
     supabase
       .from("company_settings")
-      .select("id, business_name, invoice_footer_note")
+      .select("id, business_name, invoice_footer_note, google_review_url")
       .single(),
   ]);
 
@@ -39,5 +40,6 @@ export async function getOrgSettings(): Promise<OrgSettings | null> {
     address:           org.address            ?? "",
     invoiceFooterNote: cs.invoice_footer_note ?? "",
     companySettingsId: cs.id,
+    googleReviewUrl:   cs.google_review_url   ?? "",
   };
 }

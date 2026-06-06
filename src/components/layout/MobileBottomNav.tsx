@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Inbox, KanbanSquare, Users,
-  MoreHorizontal, HardHat, Receipt, Settings,
+  MoreHorizontal, HardHat, Receipt, Settings, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -19,9 +19,10 @@ const NAV = [
 ];
 
 const MORE_NAV = [
-  { label: "Technicians", href: "/technicians", icon: HardHat },
-  { label: "Invoices",    href: "/invoices",    icon: Receipt },
-  { label: "Settings",    href: "/settings",    icon: Settings },
+  { label: "Technicians",    href: "/technicians",   icon: HardHat },
+  { label: "Invoices",       href: "/invoices",      icon: Receipt },
+  { label: "Announcements",  href: "/announcements", icon: Megaphone },
+  { label: "Settings",       href: "/settings",      icon: Settings },
 ];
 
 export function MobileBottomNav() {

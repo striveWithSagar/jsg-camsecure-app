@@ -77,5 +77,6 @@ export function notificationEntityUrl(entityType: string, entityId: string, role
     return `/technician/jobs/${entityId}`;
   }
   // admin default
+  if (entityType === "announcement") return `/announcements/${entityId}/edit`;
   return entityType === "job" ? `/jobs/${entityId}` : `/requests/${entityId}`;
 }

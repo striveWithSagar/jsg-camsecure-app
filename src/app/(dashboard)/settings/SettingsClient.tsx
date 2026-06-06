@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Building2, Bell, Lock, CreditCard } from "lucide-react";
+import { Building2, Bell, Lock, CreditCard, Star } from "lucide-react";
 import type { OrgSettings } from "@/lib/data/settings";
 
 function SettingSection({ icon: Icon, title, children }: {
@@ -41,11 +41,13 @@ type Props = {
 };
 
 export function SettingsClient({ settings, userId, adminName: initialAdminName, adminEmail }: Props) {
-  const [orgName, setOrgName]         = useState(settings.businessName);
-  const [phone, setPhone]             = useState(settings.phone);
-  const [address, setAddress]         = useState(settings.address);
-  const [emailFooter, setEmailFooter] = useState(settings.invoiceFooterNote);
-  const [orgLoading, setOrgLoading]   = useState(false);
+  const [orgName, setOrgName]               = useState(settings.businessName);
+  const [phone, setPhone]                   = useState(settings.phone);
+  const [address, setAddress]               = useState(settings.address);
+  const [emailFooter, setEmailFooter]       = useState(settings.invoiceFooterNote);
+  const [orgLoading, setOrgLoading]         = useState(false);
+  const [googleReviewUrl, setGoogleReviewUrl] = useState(settings.googleReviewUrl);
+  const [reviewLoading, setReviewLoading]   = useState(false);
 
   const [adminName, setAdminName]           = useState(initialAdminName);
   const [password, setPassword]             = useState("");
@@ -107,6 +109,21 @@ export function SettingsClient({ settings, userId, adminName: initialAdminName, 
     setAccountLoading(false);
   }
 
+  async function saveReviewUrl() {
+    setReviewLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("company_settings")
+      .update({ google_review_url: googleReviewUrl.trim() || null })
+      .eq("id", settings.companySettingsId);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Google Review URL saved");
+    }
+    setReviewLoading(false);
+  }
+
   function saveNotifs() {
     toast.info("Notification delivery is not configured yet — preferences were not saved.");
   }
@@ -161,6 +178,27 @@ export function SettingsClient({ settings, userId, adminName: initialAdminName, 
         </div>
         <Button size="sm" className="h-8 text-xs" onClick={saveOrg} disabled={orgLoading}>
           {orgLoading ? "Saving…" : "Save Organization"}
+        </Button>
+      </SettingSection>
+
+      {/* Google Reviews */}
+      <SettingSection icon={Star} title="Client Engagement">
+        <div className="space-y-1.5">
+          <Label htmlFor="google-review-url" className="text-xs">Google Business Review URL</Label>
+          <Input
+            id="google-review-url"
+            type="url"
+            value={googleReviewUrl}
+            onChange={e => setGoogleReviewUrl(e.target.value)}
+            placeholder="https://g.page/r/…/review"
+            className="h-9 text-sm"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Paste your Google Business review link here. Clients will see a &ldquo;Leave us a Google Review&rdquo; button in their portal. Leave blank to hide the button.
+          </p>
+        </div>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={saveReviewUrl} disabled={reviewLoading}>
+          {reviewLoading ? "Saving…" : "Save Review URL"}
         </Button>
       </SettingSection>
 

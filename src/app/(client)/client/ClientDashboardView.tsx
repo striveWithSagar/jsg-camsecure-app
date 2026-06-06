@@ -1,5 +1,6 @@
 import type { ClientProfileData } from "@/lib/data/client-profile";
 import type { ClientJobItem, ClientInvoiceItem } from "@/lib/data/client-portal";
+import type { AnnouncementRow } from "@/lib/data/announcements";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
   ArrowRight, CheckCircle2, Clock, FileText,
@@ -9,15 +10,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AnnouncementCard } from "@/components/client/AnnouncementCard";
+import { ReviewPanel } from "@/components/client/ReviewPanel";
 
 export function ClientDashboardView({
   profile,
   jobs,
   invoices,
+  announcements,
+  posterUrls,
+  googleReviewUrl,
 }: {
-  profile:  ClientProfileData | null;
-  jobs:     ClientJobItem[];
-  invoices: ClientInvoiceItem[];
+  profile:         ClientProfileData | null;
+  jobs:            ClientJobItem[];
+  invoices:        ClientInvoiceItem[];
+  announcements:   AnnouncementRow[];
+  posterUrls:      Record<string, string>;
+  googleReviewUrl: string;
 }) {
   const activeJobs     = jobs.filter(j => j.status !== "completed" && j.status !== "cancelled");
   const completedJobs  = jobs.filter(j => j.status === "completed");
@@ -300,6 +309,30 @@ export function ClientDashboardView({
           </div>
         </div>
       )}
+
+      {/* ── Announcements / Deals ────────────────────────────────────────── */}
+      {announcements.length > 0 && (
+        <div>
+          <h2
+            className="cp-heading text-base mb-3"
+            style={{ color: "var(--cp-orange-text)" }}
+          >
+            News &amp; Deals
+          </h2>
+          <div className="space-y-4">
+            {announcements.map(a => (
+              <AnnouncementCard
+                key={a.id}
+                announcement={a}
+                posterUrl={posterUrls[a.id] ?? null}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Google Review CTA ─────────────────────────────────────────────── */}
+      {googleReviewUrl && <ReviewPanel url={googleReviewUrl} />}
 
     </div>
   );

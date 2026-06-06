@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Inbox, KanbanSquare, Users, HardHat,
-  Receipt, Settings, ShieldCheck, LogOut, ChevronRight,
+  Receipt, Settings, ShieldCheck, LogOut, ChevronRight, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,7 +18,8 @@ const NAV = [
   { label: "Job Board",        href: "/jobs",         icon: KanbanSquare },
   { label: "Clients",          href: "/clients",      icon: Users },
   { label: "Technicians",      href: "/technicians",  icon: HardHat },
-  { label: "Invoices",         href: "/invoices",     icon: Receipt },
+  { label: "Invoices",         href: "/invoices",       icon: Receipt },
+  { label: "Announcements",   href: "/announcements",  icon: Megaphone },
 ];
 
 const BOTTOM_NAV = [
