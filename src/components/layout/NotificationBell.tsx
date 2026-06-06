@@ -23,6 +23,7 @@ function notificationEntityUrl(entityType: string, entityId: string): string {
     case "job":              return `/jobs/${entityId}`;
     case "client":           return `/clients/${entityId}`;
     case "technician":       return `/technicians/${entityId}`;
+    case "announcement":     return `/announcements/${entityId}/edit`;
     default:                 return `/requests/${entityId}`;
   }
 }

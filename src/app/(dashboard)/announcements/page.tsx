@@ -4,11 +4,24 @@ import { AnnouncementsTable } from "@/components/announcements/AnnouncementsTabl
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Announcements · CamSecure" };
 
 export default async function AnnouncementsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  let userRole = "admin";
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    if (profile?.role) userRole = profile.role as string;
+  }
+
   const announcements = await getAnnouncements();
   const published   = announcements.filter(a => a.isPublished).length;
   const totalInterests = announcements.reduce((sum, a) => sum + a.interestCount, 0);
@@ -42,7 +55,7 @@ export default async function AnnouncementsPage() {
           </Link>
         </div>
 
-        <AnnouncementsTable rows={announcements} />
+        <AnnouncementsTable rows={announcements} userRole={userRole} />
 
       </div>
     </div>

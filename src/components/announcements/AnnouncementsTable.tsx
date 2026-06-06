@@ -8,14 +8,26 @@ import { cn } from "@/lib/utils";
 import { Pencil, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AnnouncementRow } from "@/lib/data/announcements";
-import Link from "next/link";
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
+function safeDate(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "invalid date";
+  try {
+    return d.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "invalid date";
+  }
 }
 
-export function AnnouncementsTable({ rows }: { rows: AnnouncementRow[] }) {
+function fmtWindow(startsAt: string | null, endsAt: string | null): string {
+  if (!startsAt && !endsAt) return "Always active";
+  if (startsAt && !endsAt) return `Starts ${safeDate(startsAt)}`;
+  if (!startsAt && endsAt) return `Ends ${safeDate(endsAt)}`;
+  return `${safeDate(startsAt)} — ${safeDate(endsAt)}`;
+}
+
+export function AnnouncementsTable({ rows, userRole }: { rows: AnnouncementRow[]; userRole: string }) {
   const router = useRouter();
   const [toggling, setToggling] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -40,21 +52,30 @@ export function AnnouncementsTable({ rows }: { rows: AnnouncementRow[] }) {
     if (!confirm(`Delete "${row.title}"? This cannot be undone.`)) return;
     setDeleting(row.id);
     const supabase = createClient();
-    // Delete poster from storage if present
-    if (row.posterPath) {
-      await supabase.storage.from("camsecure-media").remove([row.posterPath]);
-    }
-    const { error } = await supabase
-      .from("client_announcements")
-      .delete()
-      .eq("id", row.id);
-    if (error) {
-      toast.error(error.message);
-    } else {
+    try {
+      // Delete DB row first — only proceed to storage cleanup if row was actually deleted
+      const { data: deleted, error: dbErr } = await supabase
+        .from("client_announcements")
+        .delete()
+        .eq("id", row.id)
+        .select("id");
+      if (dbErr) {
+        toast.error(dbErr.message);
+        return;
+      }
+      if (!deleted || deleted.length === 0) {
+        toast.error("Delete failed. Only the account owner can permanently delete announcements. Use Unpublish to hide it from clients.");
+        return;
+      }
+      // Row deleted — clean up poster from storage (non-critical)
+      if (row.posterPath) {
+        await supabase.storage.from("camsecure-media").remove([row.posterPath]);
+      }
       toast.success("Announcement deleted");
       router.refresh();
+    } finally {
+      setDeleting(null);
     }
-    setDeleting(null);
   }
 
   if (rows.length === 0) {
@@ -88,9 +109,7 @@ export function AnnouncementsTable({ rows }: { rows: AnnouncementRow[] }) {
                 )}
               </td>
               <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell whitespace-nowrap">
-                {row.startsAt || row.endsAt
-                  ? `${fmtDate(row.startsAt)} – ${fmtDate(row.endsAt)}`
-                  : "Always"}
+                {fmtWindow(row.startsAt, row.endsAt)}
               </td>
               <td className="px-4 py-3 hidden md:table-cell">
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -114,20 +133,25 @@ export function AnnouncementsTable({ rows }: { rows: AnnouncementRow[] }) {
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-1 justify-end">
-                  <Link href={`/announcements/${row.id}/edit`}>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => deleteAnnouncement(row)}
-                    disabled={deleting === row.id}
+                    className="h-7 w-7"
+                    onClick={() => router.push(`/announcements/${row.id}/edit`)}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Pencil className="h-3.5 w-3.5" />
                   </Button>
+                  {userRole === "owner" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => deleteAnnouncement(row)}
+                      disabled={deleting === row.id}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </td>
             </tr>
