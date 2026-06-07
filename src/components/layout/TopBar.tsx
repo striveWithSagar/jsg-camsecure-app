@@ -1,9 +1,9 @@
 "use client";
 
-import { Search, Plus, Menu } from "lucide-react";
+import { Plus, Menu } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
+import { GlobalSearch } from "./GlobalSearch";
 import { useProfile } from "@/components/providers/ProfileProvider";
-import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -40,13 +40,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
       </div>
 
       {/* Search */}
-      <div className="relative flex-1 max-w-md hidden sm:block">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <Input
-          placeholder="Search jobs, clients, requests…"
-          className="pl-9 h-8 text-sm bg-muted/40 border-border/60 focus-visible:ring-primary/40"
-        />
-      </div>
+      <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-2">
         {/* Quick add */}
